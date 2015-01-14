@@ -7,6 +7,10 @@ leaf:
   server_failure_limit: 1
   preconnect: true
   redis: true
+  region: bj
+  avaliable_zone: tc
+  failover_zones: jx,nj
+  machine_room: cq01
   servers:
    - 127.0.0.1:3000:1
    - 127.0.0.1:3001:1

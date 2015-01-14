@@ -102,6 +102,22 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, server_failure_limit) },
 
+    { string("region"),
+      conf_set_string,
+      offsetof(struct conf_pool, region) },
+
+    { string("avaliable_zone"),
+      conf_set_string,
+      offsetof(struct conf_pool, avaliable_zone) },
+
+    { string("failover_zones"),
+      conf_set_string,
+      offsetof(struct conf_pool, failover_zones) },
+
+    { string("machine_room"),
+      conf_set_string,
+      offsetof(struct conf_pool, machine_room) },
+
     { string("servers"),
       conf_add_server,
       offsetof(struct conf_pool, server) },
@@ -295,6 +311,11 @@ conf_pool_each_transform(void *elem, void *data)
     sp->server_failure_limit = (uint32_t)cp->server_failure_limit;
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
+
+    sp->region = cp->region;
+    sp->avaliable_zone = cp->avaliable_zone;
+    sp->failover_zones = cp->failover_zones;
+    sp->machine_room = cp->machine_room;
 
     status = server_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {

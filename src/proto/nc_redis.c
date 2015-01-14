@@ -1613,7 +1613,7 @@ redis_parse_req(struct msg *r)
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
-done:
+ done:
     ASSERT(r->type > MSG_UNKNOWN && r->type < MSG_SENTINEL);
     r->pos = p + 1;
     ASSERT(r->pos <= b->last);
@@ -1626,7 +1626,7 @@ done:
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
-enomem:
+ enomem:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
 
@@ -1635,7 +1635,7 @@ enomem:
 
     return;
 
-error:
+ error:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
@@ -2053,7 +2053,7 @@ redis_parse_rsp(struct msg *r)
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
-done:
+ done:
     ASSERT(r->type > MSG_UNKNOWN && r->type < MSG_SENTINEL);
     r->pos = p + 1;
     ASSERT(r->pos <= b->last);
@@ -2066,7 +2066,7 @@ done:
                 r->state, r->pos - b->pos, b->last - b->pos);
     return;
 
-error:
+ error:
     r->result = MSG_PARSE_ERROR;
     r->state = state;
     errno = EINVAL;
@@ -2738,4 +2738,47 @@ redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
                  conn_pool->redis_db, conn_pool->name.data,
                  conn_server->name.data, message);
     }
+}
+
+struct conn *
+redis_routing(struct context *ctx, struct server_pool *pool, 
+              struct msg *msg, const uint8_t *key, uint32_t keylen)
+{
+    struct conn *s_conn;
+
+    if (pool->redis) {
+        int idx;
+        rstatus_t status;
+        struct server *server;
+
+        idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
+        
+        if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
+            server = pool->slots[idx]->master;
+        } else {
+            struct array *slaves;
+            slaves = &pool->slots[idx]->tagged_servers[0];
+            idx = random() % array_n(slaves);
+            server = *(struct server**)array_get(slaves, idx);
+            if (server == NULL) {
+                return NULL;
+            }
+        }
+
+        /* pick a connection to a given server */
+        s_conn = server_conn(server);
+        if (s_conn == NULL) {
+            return NULL;
+        }
+
+        status = server_connect(ctx, server, s_conn);
+        if (status != NC_OK) {
+            server_close(ctx, s_conn);
+            return NULL;
+        }
+    } else {
+        s_conn = server_pool_conn(ctx, pool, key, keylen);
+    }
+
+    return s_conn;
 }

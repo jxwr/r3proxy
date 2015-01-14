@@ -1520,3 +1520,13 @@ memcache_reply(struct msg *r)
     return NC_OK;
 }
 
+struct conn *
+memcache_routing(struct context *ctx, struct server_pool *pool, 
+                 struct msg *msg, const uint8_t *key, uint32_t keylen)
+{
+    struct conn *s_conn;
+
+    s_conn = server_pool_conn(ctx, pool, key, keylen);
+
+    return s_conn;
+}

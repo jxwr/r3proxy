@@ -606,7 +606,7 @@ server_pool_update(struct server_pool *pool)
     return NC_OK;
 }
 
-static uint32_t
+uint32_t
 server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
@@ -679,14 +679,8 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     struct server *server;
     uint32_t idx;
 
-    /*
     idx = server_pool_idx(pool, key, keylen);
     server = array_get(&pool->server, idx);
-    */
-
-    idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
-    log_debug(LOG_VERB, "______getrs:%p->%p", pool, pool->slots[idx]);
-    server = pool->slots[idx]->master;
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,
               key, pool->dist_type, server->pname.len, server->pname.data);
@@ -702,12 +696,10 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
     struct server *server;
     struct conn *conn;
 
-    /*
     status = server_pool_update(pool);
     if (status != NC_OK) {
         return NULL;
     }
-    */
 
     /* from a given {key, keylen} pick a server from pool */
     server = server_pool_server(pool, key, keylen);

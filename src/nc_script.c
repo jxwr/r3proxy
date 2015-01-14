@@ -100,7 +100,8 @@ static const luaL_Reg replicaset_funcs[] = {
     {NULL, NULL}
 };
 
-int luaopen_replicaset(lua_State* L) {
+static int 
+luaopen_replicaset(lua_State* L) {
     luaL_newlib(L, replicaset_funcs);
     return 1;
 }
@@ -121,7 +122,7 @@ server_new(lua_State *L) {
 
     /* init server struct */
     /* set owner */
-    lua_getglobal(L, "pool");
+    lua_getglobal(L, "__pool");
     pool = (struct server_pool*)lua_touserdata(L, -1);
     s->owner = pool;
     lua_pop(L, 1);
@@ -218,7 +219,8 @@ static const luaL_Reg server_funcs[] = {
     {NULL, NULL}
 };
 
-int luaopen_server(lua_State* L) {
+static int 
+luaopen_server(lua_State* L) {
     luaL_newlib(L, server_funcs);
     return 1;
 }
@@ -234,10 +236,10 @@ slots_set_replicaset(lua_State *L) {
     rs = (struct replicaset*)lua_touserdata(L, 1);
     start = (int)lua_tonumber(L, 2);
     end = (int)lua_tonumber(L, 3);
-    lua_getglobal(L, "pool");
+
+    lua_getglobal(L, "__pool");
     pool = (struct server_pool*)lua_touserdata(L, -1);
 
-    log_debug(LOG_VERB, "____set_rs:%d-%d %p->%p", start, end, pool, rs);
     for (i = start; i <= end; i++) {
         pool->slots[i] = rs;
     }
@@ -250,8 +252,69 @@ static const luaL_Reg slots_funcs[] = {
     {NULL, NULL}
 };
 
-int luaopen_slots(lua_State* L) {
+static int 
+luaopen_slots(lua_State* L) {
     luaL_newlib(L, slots_funcs);
+    return 1;
+}
+
+/* module pool */
+
+static int
+pool_get_region(lua_State *L) {
+    struct server_pool *pool;
+
+    lua_getglobal(L, "__pool");
+    pool = (struct server_pool*)lua_touserdata(L, -1);
+
+    lua_pushlstring(L, (const char*)pool->region.data, pool->region.len);
+    return 1;
+}
+
+static int
+pool_get_avaliable_zone(lua_State *L) {
+    struct server_pool *pool;
+
+    lua_getglobal(L, "__pool");
+    pool = (struct server_pool*)lua_touserdata(L, -1);
+
+    lua_pushlstring(L, (const char*)pool->avaliable_zone.data, pool->avaliable_zone.len);
+    return 1;
+}
+
+static int
+pool_get_failover_zones(lua_State *L) {
+    struct server_pool *pool;
+
+    lua_getglobal(L, "__pool");
+    pool = (struct server_pool*)lua_touserdata(L, -1);
+
+    lua_pushlstring(L, (const char*)pool->failover_zones.data, pool->failover_zones.len);
+    return 1;
+}
+
+static int
+pool_get_machine_room(lua_State *L) {
+    struct server_pool *pool;
+
+    lua_getglobal(L, "__pool");
+    pool = (struct server_pool*)lua_touserdata(L, -1);
+
+    lua_pushlstring(L, (const char*)pool->machine_room.data, pool->machine_room.len);
+    return 1;
+}
+
+static const luaL_Reg pool_funcs[] = {
+    {"region", pool_get_region},
+    {"avaliable_zone", pool_get_avaliable_zone},
+    {"failover_zones", pool_get_failover_zones},
+    {"machine_room", pool_get_machine_room},
+    {NULL, NULL}
+};
+
+static int 
+luaopen_pool(lua_State* L) {
+    luaL_newlib(L, pool_funcs);
     return 1;
 }
 
@@ -270,7 +333,7 @@ int script_init(struct server_pool *pool)
     lua_setglobal(L, "string");
 
     lua_pushlightuserdata(L, pool);
-    lua_setglobal(L, "pool");
+    lua_setglobal(L, "__pool");
 
     luaL_requiref(L, "replicaset", &luaopen_replicaset, 1);
     lua_pop(L, 1);
@@ -278,8 +341,12 @@ int script_init(struct server_pool *pool)
     lua_pop(L, 1);
     luaL_requiref(L, "slots", &luaopen_slots, 1);
     lua_pop(L, 1);
+    luaL_requiref(L, "pool", &luaopen_pool, 1);
+    lua_pop(L, 1);
 
     if (lua_pcall(L, 0, 0, 0) != 0) {
         log_error("call lua script failed - %s", lua_tostring(L, -1));
     }
+
+    return 0;
 }

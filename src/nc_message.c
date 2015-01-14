@@ -299,6 +299,7 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->reply = redis_reply;
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
+        msg->routing = redis_routing;
     } else {
         if (request) {
             msg->parser = memcache_parse_req;
@@ -309,6 +310,7 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->fragment = memcache_fragment;
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
+        msg->routing = memcache_routing;
     }
 
     if (log_loggable(LOG_NOTICE) != 0) {

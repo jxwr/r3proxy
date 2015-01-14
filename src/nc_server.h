@@ -132,7 +132,10 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
-
+    struct string      region;               /* region: bj, hz */
+    struct string      avaliable_zone;       /* avaliable_zone: */
+    struct string      failover_zones;       /* failover avaliable_zones */
+    struct string      machine_room;         /* machine_room: */
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
 };
 
@@ -155,5 +158,6 @@ rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);
+uint32_t server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen);
 
 #endif
