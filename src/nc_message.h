@@ -26,6 +26,7 @@ typedef rstatus_t (*msg_fragment_t)(struct msg *, uint32_t, struct msg_tqh *);
 typedef void (*msg_coalesce_t)(struct msg *r);
 typedef rstatus_t (*msg_reply_t)(struct msg *r);
 typedef struct conn *(*msg_routing_t)(struct context *, struct server_pool *, struct msg *, const uint8_t *key, uint32_t keylen);
+typedef rstatus_t (*msg_forward_t)(struct context *, struct conn *, struct msg *);
 
 typedef enum msg_parse_result {
     MSG_PARSE_OK,                         /* parsing ok */
@@ -210,6 +211,8 @@ struct msg {
     msg_reply_t          reply;           /* gen message reply (example: ping) */
     msg_add_auth_t       add_auth;        /* add auth message when we forward msg */
     msg_routing_t        routing;         /* message routing */
+    msg_forward_t        pre_req_forward; /* message pre-forward */
+    msg_forward_t        pre_rsp_forward; /* message post-forward */
 
     msg_coalesce_t       pre_coalesce;    /* message pre-coalesce */
     msg_coalesce_t       post_coalesce;   /* message post-coalesce */
@@ -281,6 +284,7 @@ void req_client_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg
 void req_server_enqueue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_client_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
 void req_server_dequeue_omsgq(struct context *ctx, struct conn *conn, struct msg *msg);
+rstatus_t req_enqueue(struct context *ctx, struct conn *s_conn, struct conn *c_conn, struct msg *msg);
 struct msg *req_recv_next(struct context *ctx, struct conn *conn, bool alloc);
 void req_recv_done(struct context *ctx, struct conn *conn, struct msg *msg, struct msg *nmsg);
 struct msg *req_send_next(struct context *ctx, struct conn *conn);

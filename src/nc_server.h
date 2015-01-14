@@ -59,10 +59,11 @@
  *            //
  */
 
-struct pool;
+struct server_pool;
+typedef struct lua_State lua_State;
 
 typedef uint32_t (*hash_t)(const char *, size_t);
-typedef void (*pool_tick_t)(struct pool *);
+typedef void (*pool_tick_t)(struct server_pool *);
 
 struct continuum {
     uint32_t index;  /* server index */
@@ -134,13 +135,18 @@ struct server_pool {
     uint32_t           server_failure_limit; /* server failure limit */
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
+
     unsigned           redis:1;              /* redis? */
+    unsigned           rediscluster:1;       /* rediscluster? */
+    unsigned           need_update_slots:1;  /* need_update_slots(rediscluster) */
     pool_tick_t        pool_tick;            /* ticker */
+    int64_t            ticks_left;
     struct string      region;               /* region: bj, hz */
     struct string      avaliable_zone;       /* avaliable_zone: */
     struct string      failover_zones;       /* failover avaliable_zones */
     struct string      machine_room;         /* machine_room: */
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
+    lua_State *L
 };
 
 void server_ref(struct conn *conn, void *owner);

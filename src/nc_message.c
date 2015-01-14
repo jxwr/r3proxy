@@ -300,6 +300,8 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->pre_coalesce = redis_pre_coalesce;
         msg->post_coalesce = redis_post_coalesce;
         msg->routing = redis_routing;
+        msg->pre_req_forward = redis_pre_req_forward;
+        msg->pre_rsp_forward = redis_pre_rsp_forward;
     } else {
         if (request) {
             msg->parser = memcache_parse_req;
@@ -311,6 +313,8 @@ msg_get(struct conn *conn, bool request, bool redis)
         msg->pre_coalesce = memcache_pre_coalesce;
         msg->post_coalesce = memcache_post_coalesce;
         msg->routing = memcache_routing;
+        msg->pre_req_forward = NULL;
+        msg->pre_rsp_forward = NULL;
     }
 
     if (log_loggable(LOG_NOTICE) != 0) {

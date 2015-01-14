@@ -29,6 +29,9 @@
 #define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
 #define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
 
+#define REDIS_UPDATE_TICKS (10000/NC_TICK_INTERVAL) /* 10s */
+#define REDIS_CLUSTER_NODES_MESSAGE "*2\r\n$7\r\ncluster\r\n$5\r\nnodes\r\n"
+
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
 /*
@@ -2783,8 +2786,114 @@ redis_routing(struct context *ctx, struct server_pool *pool,
     return s_conn;
 }
 
-void 
-redis_pool_tick(struct pool *pool) 
+static rstatus_t
+build_probe_message(struct msg *r)
 {
-    log_debug(LOG_VERB, "redis tick");
+    struct mbuf *mbuf;
+    size_t msize, msglen;
+
+    ASSERT(STAILQ_LAST(&r->mhdr, mbuf, next) == NULL);
+    
+    mbuf = mbuf_get();
+    if (mbuf == NULL) {
+        return NC_ENOMEM;
+    }
+    mbuf_insert(&r->mhdr, mbuf);
+    r->pos = mbuf->pos;
+
+    msize = mbuf_size(mbuf);
+    msglen = sizeof(REDIS_CLUSTER_NODES_MESSAGE) - 1;
+    
+    ASSERT(msize >= msglen);
+    
+    mbuf_copy(mbuf, (uint8_t *)REDIS_CLUSTER_NODES_MESSAGE, msglen);
+    r->mlen += (uint32_t)msglen;
+    
+    return NC_OK;
+}
+
+rstatus_t
+redis_pre_req_forward(struct context *ctx, struct conn *conn, struct msg *msg)
+{
+    return NC_OK;
+}
+
+rstatus_t
+redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg) 
+{
+    if (!s_conn->client && !s_conn->proxy) {
+        struct msg *pmsg;
+        struct conn *c_conn;
+        struct server *server;
+        struct server_pool *pool;
+        struct mbuf *mbuf;
+
+        pmsg = msg->peer;
+        c_conn = pmsg->owner;
+        server = s_conn->owner;
+        pool = server->owner;
+
+        /* FIXME: check length */
+        mbuf = STAILQ_FIRST(&msg->mhdr);
+        script_call(pool, mbuf->start, mbuf->end - mbuf->start, "update_cluster_nodes");
+        req_put(pmsg);
+        return NC_ERROR;
+    }
+    return NC_OK;
+}
+
+void 
+redis_pool_tick(struct server_pool *pool) 
+{
+    if (pool->ticks_left <= 0) {
+        pool->need_update_slots = 1;
+        pool->ticks_left = REDIS_UPDATE_TICKS;
+    } else {
+        pool->ticks_left--;
+    }
+
+    if (pool->need_update_slots) {
+        int idx;
+        struct msg *msg;
+        rstatus_t status;
+        struct server* server;
+        struct conn* conn;
+
+        log_debug(LOG_VERB, "redis update slots");
+        pool->need_update_slots = 0;
+
+        msg = msg_get(NULL, true, 1);
+        if (msg == NULL) {
+            return;
+        }
+
+        status = build_probe_message(msg);
+        if (status != NC_OK) {
+            msg_put(msg);
+            return;
+        }
+        
+        idx = random() % 16384;
+        server = pool->slots[idx]->master;
+
+        conn = server_conn(server);
+        if (conn == NULL) {
+            log_debug(LOG_VERB, "server: failed to fetch conn");
+            return;
+        }
+
+        status = server_connect(pool->ctx, server, conn);
+        if (status != NC_OK) {
+            log_warn("connect to server '%.*s' failed, ignored: %s",
+                     server->pname.len, server->pname.data, strerror(errno));
+            server_close(pool->ctx, conn);
+            return;
+        }
+
+        status = req_enqueue(pool->ctx, conn, NULL, msg);
+        if (status != NC_OK) {
+            req_put(msg);
+            return;
+        }
+    }
 }

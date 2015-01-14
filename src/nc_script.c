@@ -9,7 +9,6 @@
 
 #include <nc_core.h>
 
-
 static int 
 split(lua_State *L) 
 {
@@ -325,6 +324,7 @@ int script_init(struct server_pool *pool)
     lua_State *L;
 
     L = luaL_newstate();                        /* Create Lua state variable */
+    pool->L = L;
     luaL_openlibs(L);                           /* Load Lua libraries */
     luaL_loadfile(L, "test.lua");
 
@@ -346,6 +346,23 @@ int script_init(struct server_pool *pool)
 
     if (lua_pcall(L, 0, 0, 0) != 0) {
         log_error("call lua script failed - %s", lua_tostring(L, -1));
+    }
+
+    return 0;
+}
+
+int script_call(struct server_pool *pool, const char *body, int len, const char *func_name)
+{
+    lua_State *L = pool->L;
+
+    log_debug(LOG_VERB, "update cluster nodes");
+
+    lua_getglobal(L, func_name);
+    lua_pushlstring(L, body, len);
+
+    /* call update function */
+    if (lua_pcall(L, 1, 0, 0) != 0) {
+        log_debug(LOG_VERB, "call %s failed - %s", func_name, lua_tostring(L, -1));
     }
 
     return 0;

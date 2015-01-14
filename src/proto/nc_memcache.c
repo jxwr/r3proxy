@@ -1532,7 +1532,7 @@ memcache_routing(struct context *ctx, struct server_pool *pool,
 }
 
 void 
-memcache_pool_tick(struct pool *pool) 
+memcache_pool_tick(struct server_pool *pool) 
 {
 
 }

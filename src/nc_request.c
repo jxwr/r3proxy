@@ -547,6 +547,34 @@ req_forward_stats(struct context *ctx, struct server *server, struct msg *msg)
     stats_server_incr_by(ctx, server, request_bytes, msg->mlen);
 }
 
+rstatus_t
+req_enqueue(struct context *ctx, struct conn *s_conn, struct conn *c_conn, struct msg *msg)
+{
+    rstatus_t status;
+
+    /* enqueue the message (request) into server inq */
+    if (TAILQ_EMPTY(&s_conn->imsg_q)) {
+        status = event_add_out(ctx->evb, s_conn);
+        if (status != NC_OK) {
+            req_forward_error(ctx, c_conn, msg);
+            s_conn->err = errno;
+            return status;
+        }
+    }
+
+    if (s_conn->need_auth) {
+        status = msg->add_auth(ctx, c_conn, s_conn);
+        if (status != NC_OK) {
+            req_forward_error(ctx, c_conn, msg);
+            s_conn->err = errno;
+            return status;
+        }
+    }
+
+    s_conn->enqueue_inq(ctx, s_conn, msg);
+    return NC_OK;
+}
+
 static void
 req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 {
@@ -578,26 +606,10 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     }
     ASSERT(!s_conn->client && !s_conn->proxy);
 
-    /* enqueue the message (request) into server inq */
-    if (TAILQ_EMPTY(&s_conn->imsg_q)) {
-        status = event_add_out(ctx->evb, s_conn);
-        if (status != NC_OK) {
-            req_forward_error(ctx, c_conn, msg);
-            s_conn->err = errno;
-            return;
-        }
+    status = req_enqueue(ctx, s_conn, c_conn, msg);
+    if (status != NC_OK) {
+        return NC_ERROR;
     }
-
-    if (s_conn->need_auth) {
-        status = msg->add_auth(ctx, c_conn, s_conn);
-        if (status != NC_OK) {
-            req_forward_error(ctx, c_conn, msg);
-            s_conn->err = errno;
-            return;
-        }
-    }
-
-    s_conn->enqueue_inq(ctx, s_conn, msg);
 
     req_forward_stats(ctx, s_conn->owner, msg);
 

@@ -38,3 +38,7 @@ replicaset.add_slave(rs, 1, server3)
 slots.set_replicaset(rs, 0, 16383)
 
 print ("Script Init Done")
+
+function update_cluster_nodes(body)
+    print(body)
+end
