@@ -76,6 +76,7 @@ struct server {
     uint32_t           weight;        /* weight */
     int                family;        /* socket family */
     socklen_t          addrlen;       /* socket length */
+    struct sockinfo    sockinfo;
     struct sockaddr    *addr;         /* socket address (ref in conf_server) */
 
     uint32_t           ns_conn_q;     /* # server connection */
@@ -83,6 +84,14 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+};
+
+#define NC_MAXTAGNUM 10
+
+struct replicaset {
+    struct server *master;
+    struct array standby;
+    struct array tagged_servers[NC_MAXTAGNUM];
 };
 
 struct server_pool {
@@ -122,6 +131,8 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
+
+    struct replicaset* rs;
 };
 
 void server_ref(struct conn *conn, void *owner);

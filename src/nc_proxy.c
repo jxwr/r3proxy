@@ -288,7 +288,7 @@ proxy_accept(struct context *ctx, struct conn *p)
             }
 
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED) {
-                log_debug(LOG_VERB, "accept on p %d not ready - eagain", p->sd);
+                log_debug(LOG_VERB, "accept on p %d not ready - eagain - %s", p->sd, strerror(errno));
                 p->recv_ready = 0;
                 return NC_OK;
             }

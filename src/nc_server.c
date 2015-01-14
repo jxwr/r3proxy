@@ -21,6 +21,7 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
+#include <nc_script.h>
 
 void
 server_ref(struct conn *conn, void *owner)
@@ -181,10 +182,10 @@ server_conn(struct server *server)
      * balancing on it. Support multiple algorithms for
      * 'server_connections:' > 0 key
      */
-
     if (server->ns_conn_q < pool->server_connections) {
         return conn_get(server, false, pool->redis);
     }
+
     ASSERT(server->ns_conn_q == pool->server_connections);
 
     /*
@@ -678,8 +679,13 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     struct server *server;
     uint32_t idx;
 
+    /*
     idx = server_pool_idx(pool, key, keylen);
     server = array_get(&pool->server, idx);
+    */
+    log_debug(LOG_VERB, "______getrs:%p->%p", pool, pool->rs);
+
+    server = pool->rs->master;
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,
               key, pool->dist_type, server->pname.len, server->pname.data);
@@ -695,10 +701,12 @@ server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
     struct server *server;
     struct conn *conn;
 
+    /*
     status = server_pool_update(pool);
     if (status != NC_OK) {
         return NULL;
     }
+    */
 
     /* from a given {key, keylen} pick a server from pool */
     server = server_pool_server(pool, key, keylen);
@@ -735,6 +743,8 @@ server_pool_each_preconnect(void *elem, void *data)
     if (status != NC_OK) {
         return status;
     }
+
+    script_init(sp);
 
     return NC_OK;
 }

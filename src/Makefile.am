@@ -8,6 +8,7 @@ AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
 AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
+AM_CPPFLAGS += -I $(top_srcdir)/contrib/lua-5.3.0/src/
 
 AM_CFLAGS = 
 # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
@@ -51,6 +52,7 @@ nutcracker_SOURCES =			\
 	nc_string.c nc_string.h		\
 	nc_array.c nc_array.h		\
 	nc_util.c nc_util.h		\
+	nc_script.c nc_script.h		\
 	nc_queue.h			\
 	nc.c
 
@@ -58,3 +60,4 @@ nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
 nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
+nutcracker_LDADD += $(top_builddir)/contrib/lua-5.3.0/src/liblua.a
