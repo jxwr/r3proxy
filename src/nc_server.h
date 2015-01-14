@@ -87,6 +87,7 @@ struct server {
 };
 
 #define NC_MAXTAGNUM 10
+#define REDIS_CLUSTER_SLOTS 16384
 
 struct replicaset {
     struct server *master;
@@ -132,7 +133,7 @@ struct server_pool {
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
 
-    struct replicaset* rs;
+    struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
 };
 
 void server_ref(struct conn *conn, void *owner);

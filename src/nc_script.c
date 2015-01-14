@@ -223,29 +223,35 @@ int luaopen_server(lua_State* L) {
     return 1;
 }
 
-/* module twemproxy */
+/* module slots */
 
 static int
-twemproxy_set_replicaset(lua_State *L) {
+slots_set_replicaset(lua_State *L) {
     struct server_pool *pool;
     struct replicaset *rs;
+    int i, start, end;
 
     rs = (struct replicaset*)lua_touserdata(L, 1);
+    start = (int)lua_tonumber(L, 2);
+    end = (int)lua_tonumber(L, 3);
     lua_getglobal(L, "pool");
     pool = (struct server_pool*)lua_touserdata(L, -1);
-    log_debug(LOG_VERB, "____set_rs:%p->%p", pool, rs);
-    pool->rs = rs;
+
+    log_debug(LOG_VERB, "____set_rs:%d-%d %p->%p", start, end, pool, rs);
+    for (i = start; i <= end; i++) {
+        pool->slots[i] = rs;
+    }
 
     return 0;
 }
 
-static const luaL_Reg twemproxy_funcs[] = {
-    {"set_replicaset", twemproxy_set_replicaset},
+static const luaL_Reg slots_funcs[] = {
+    {"set_replicaset", slots_set_replicaset},
     {NULL, NULL}
 };
 
-int luaopen_twemproxy(lua_State* L) {
-    luaL_newlib(L, twemproxy_funcs);
+int luaopen_slots(lua_State* L) {
+    luaL_newlib(L, slots_funcs);
     return 1;
 }
 
@@ -270,7 +276,7 @@ int script_init(struct server_pool *pool)
     lua_pop(L, 1);
     luaL_requiref(L, "server", &luaopen_server, 1);
     lua_pop(L, 1);
-    luaL_requiref(L, "twemproxy", &luaopen_twemproxy, 1);
+    luaL_requiref(L, "slots", &luaopen_slots, 1);
     lua_pop(L, 1);
 
     if (lua_pcall(L, 0, 0, 0) != 0) {

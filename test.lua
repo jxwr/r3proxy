@@ -15,6 +15,6 @@ replicaset.add_slave(rs, 1, server1)
 replicaset.add_slave(rs, 1, server2)
 replicaset.add_slave(rs, 2, server3)
 
-twemproxy.set_replicaset(rs)
+slots.set_replicaset(rs, 0, 16383)
 
 print ("Script Init Done")

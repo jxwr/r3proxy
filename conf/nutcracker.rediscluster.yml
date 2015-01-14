@@ -1,7 +1,7 @@
 leaf:
   listen: 127.0.0.1:2212
-  hash: fnv1a_64
-  distribution: ketama
+  hash: crc16
+  distribution: random
   auto_eject_hosts: true
   server_retry_timeout: 2000
   server_failure_limit: 1
