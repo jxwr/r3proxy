@@ -50,6 +50,7 @@ core_ctx_create(struct instance *nci)
 {
     rstatus_t status;
     struct context *ctx;
+    int64_t now;
 
     ctx = nc_alloc(sizeof(*ctx));
     if (ctx == NULL) {
@@ -65,6 +66,13 @@ core_ctx_create(struct instance *nci)
     ctx->max_nfd = 0;
     ctx->max_ncconn = 0;
     ctx->max_nsconn = 0;
+
+    now = nc_msec_now();
+    if (now < 0) {
+        nc_free(ctx);
+        return NULL;
+    }
+    ctx->next_tick = now + NC_TICK_INTERVAL;
 
     /* parse and create configuration */
     ctx->cf = conf_create(nci->conf_filename);
@@ -344,10 +352,36 @@ core_core(void *arg, uint32_t events)
     return NC_OK;
 }
 
+static void
+core_tick(struct context *ctx)
+{
+    uint32_t npool;
+    npool = array_n(&ctx->pool);
+
+    if (npool == 0) {
+        return;
+    }
+
+    server_pool_tick(ctx);
+}
+
 rstatus_t
 core_loop(struct context *ctx)
 {
-    int nsd;
+    int nsd, delta;
+    int64_t now;
+
+    now = nc_msec_now();
+    while (now >= ctx->next_tick) {
+        core_tick(ctx);
+        ctx->next_tick += NC_TICK_INTERVAL;
+    }
+
+    delta = (int)(ctx->next_tick - now);
+
+    ASSERT(delta > 0);
+
+    ctx->timeout = MIN(delta, ctx->timeout);
 
     nsd = event_wait(ctx->evb, ctx->timeout);
     if (nsd < 0) {

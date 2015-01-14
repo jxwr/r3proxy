@@ -907,3 +907,7 @@ server_pool_deinit(struct array *server_pool)
 
     log_debug(LOG_DEBUG, "deinit %"PRIu32" pools", npool);
 }
+
+void server_pool_tick(struct context *ctx) {
+    log_debug(LOG_VERB, "tick");
+}
