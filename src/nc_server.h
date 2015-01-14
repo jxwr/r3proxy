@@ -146,7 +146,7 @@ struct server_pool {
     struct string      failover_zones;       /* failover avaliable_zones */
     struct string      machine_room;         /* machine_room: */
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
-    lua_State *L
+    lua_State *L;
 };
 
 void server_ref(struct conn *conn, void *owner);
