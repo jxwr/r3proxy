@@ -148,6 +148,7 @@ rstatus_t memcache_reply(struct msg *r);
 void memcache_post_connect(struct context *ctx, struct conn *conn, struct server *server);
 void memcache_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 struct conn *memcache_routing(struct context *ctx, struct server_pool *pool, struct msg *msg, const uint8_t *key, uint32_t keylen);
+void memcache_pool_tick(struct pool *pool);
 
 void redis_parse_req(struct msg *r);
 void redis_parse_rsp(struct msg *r);
@@ -159,5 +160,6 @@ rstatus_t redis_reply(struct msg *r);
 void redis_post_connect(struct context *ctx, struct conn *conn, struct server *server);
 void redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg);
 struct conn *redis_routing(struct context *ctx, struct server_pool *pool, struct msg *msg, const uint8_t *key, uint32_t keylen);
+void redis_pool_tick(struct pool *pool);
 
 #endif

@@ -59,7 +59,10 @@
  *            //
  */
 
+struct pool;
+
 typedef uint32_t (*hash_t)(const char *, size_t);
+typedef void (*pool_tick_t)(struct pool *);
 
 struct continuum {
     uint32_t index;  /* server index */
@@ -132,6 +135,7 @@ struct server_pool {
     unsigned           auto_eject_hosts:1;   /* auto_eject_hosts? */
     unsigned           preconnect:1;         /* preconnect? */
     unsigned           redis:1;              /* redis? */
+    pool_tick_t        pool_tick;            /* ticker */
     struct string      region;               /* region: bj, hz */
     struct string      avaliable_zone;       /* avaliable_zone: */
     struct string      failover_zones;       /* failover avaliable_zones */

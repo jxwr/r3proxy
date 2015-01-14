@@ -21,6 +21,7 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
+#include <nc_proto.h>
 #include <nc_script.h>
 
 void
@@ -787,6 +788,21 @@ server_pool_each_set_owner(void *elem, void *data)
 }
 
 static rstatus_t
+server_pool_each_set_tick_callback(void *elem, void *data)
+{
+    struct server_pool *sp = elem;
+    struct context *ctx = data;
+
+    if (sp->redis) {
+        sp->pool_tick = redis_pool_tick;
+    } else {
+        sp->pool_tick = memcache_pool_tick;
+    }
+
+    return NC_OK;
+}
+
+static rstatus_t
 server_pool_each_calc_connections(void *elem, void *data)
 {
     struct server_pool *sp = elem;
@@ -858,6 +874,13 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
         return status;
     }
 
+    /* set tick callback */
+    status = array_each(server_pool, server_pool_each_set_tick_callback, ctx);
+    if (status != NC_OK) {
+        server_pool_deinit(server_pool);
+        return status;
+    }
+
     /* compute max server connections */
     ctx->max_nsconn = 0;
     status = array_each(server_pool, server_pool_each_calc_connections, ctx);
@@ -908,6 +931,23 @@ server_pool_deinit(struct array *server_pool)
     log_debug(LOG_DEBUG, "deinit %"PRIu32" pools", npool);
 }
 
+static rstatus_t
+server_pool_each_tick(void *elem, void *data)
+{
+    rstatus_t status;
+    struct server_pool *pool = elem;
+    struct array *servers;
+
+    pool->pool_tick(pool);
+    
+    /* always returns NC_OK */
+    return NC_OK;
+}
+
 void server_pool_tick(struct context *ctx) {
-    log_debug(LOG_VERB, "tick");
+    struct array *pools;
+
+    pools = &ctx->pool;
+
+    array_each(pools, server_pool_each_tick, NULL);
 }

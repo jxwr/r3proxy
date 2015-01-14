@@ -2782,3 +2782,9 @@ redis_routing(struct context *ctx, struct server_pool *pool,
 
     return s_conn;
 }
+
+void 
+redis_pool_tick(struct pool *pool) 
+{
+    log_debug(LOG_VERB, "redis tick");
+}
