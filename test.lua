@@ -16,27 +16,6 @@ for i,az in ipairs(fazs) do
    tag_idx_map[az] = i + 1
 end
 
--- test prepare
-
-server0 = server.new("server0","127.0.0.1",3002)
-server1 = server.new("server1","127.0.0.1",4001)
-server2 = server.new("server2","127.0.0.1",4002)
-server3 = server.new("server3","127.0.0.1",4003)
-
-rs = replicaset.new()
-
-server.connect(server0)
-server.connect(server1)
-server.connect(server2)
-server.connect(server3)
-
-replicaset.set_master(rs, server0)
-replicaset.add_slave(rs, 0, server2)
-replicaset.add_slave(rs, 1, server1)
-replicaset.add_slave(rs, 1, server3)
-
-slots.set_replicaset(rs, 0, 16383)
-
 -- main
 
 G_server_list = {}
@@ -230,13 +209,13 @@ end
 
 function update_cluster_nodes(body)
    local server_list = parse(body)
-
    fix_servers(server_list)
 
    local replicaset_masters = build_replica_sets(G_server_list)
-   G_masters = replicaset_masters
-
    bind_slots(replicaset_masters)
+
+   -- avoid gc
+   G_masters = replicaset_masters
 end
 
 print ("Script Init Done")

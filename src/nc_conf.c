@@ -260,6 +260,7 @@ conf_pool_deinit(struct conf_pool *cp)
 rstatus_t
 conf_pool_each_transform(void *elem, void *data)
 {
+    int i;
     rstatus_t status;
     struct conf_pool *cp = elem;
     struct array *server_pool = data;
@@ -316,6 +317,10 @@ conf_pool_each_transform(void *elem, void *data)
     sp->avaliable_zone = cp->avaliable_zone;
     sp->failover_zones = cp->failover_zones;
     sp->machine_room = cp->machine_room;
+
+    for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
+        sp->slots[i] = NULL;
+    }
 
     status = server_init(&sp->server, &cp->server, sp);
     if (status != NC_OK) {

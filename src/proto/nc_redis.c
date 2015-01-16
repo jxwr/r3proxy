@@ -2848,7 +2848,7 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
         t_start = nc_usec_now();
         script_call(pool, mbuf->start, mbuf->last - mbuf->start, "update_cluster_nodes");
         t_end = nc_usec_now();
-        log_debug(LOG_VERB, "update slots in %lldus", t_end - t_start);
+        log_debug(LOG_VERB, "update slots done in %lldus", t_end - t_start);
         req_put(pmsg);
         return NC_ERROR;
     }
@@ -2873,7 +2873,6 @@ redis_pool_tick(struct server_pool *pool)
         struct server* server;
         struct conn* conn;
 
-        log_debug(LOG_VERB, "redis update slots");
         pool->need_update_slots = 0;
 
         msg = msg_get(NULL, true, 1);
@@ -2887,9 +2886,13 @@ redis_pool_tick(struct server_pool *pool)
             msg_put(msg);
             return;
         }
-
+        
         idx = random() % 16384;
-        server = pool->slots[idx]->master;
+        if (pool->slots[idx] != NULL) {
+            server = pool->slots[idx]->master;
+        } else {
+            server = array_get(&pool->server, 0);
+        }
 
         conn = server_conn(server);
         if (conn == NULL) {
