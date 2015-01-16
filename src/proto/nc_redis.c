@@ -1296,7 +1296,7 @@ redis_parse_req(struct msg *r)
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg < 2) {
-                        goto error;
+                        //                        goto error;
                     }
                     state = SW_ARG2_LEN;
                 } else if (redis_argkvx(r)) {
@@ -1396,9 +1396,6 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                 }
-                if (nkey == 0) {
-                    goto error;
-                }
 
                 r->token = NULL;
             }
@@ -1427,7 +1424,9 @@ redis_parse_req(struct msg *r)
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg < 1) {
-                        goto error;
+                        /* internal control command */
+                        r->noforward = 1;
+                        goto done;
                     }
                     state = SW_KEY_LEN;
                 } else {
@@ -2488,7 +2487,10 @@ redis_reply(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
         return msg_append(response, (uint8_t *)REPL_PONG, nc_strlen(REPL_PONG));
-
+    case MSG_REQ_REDIS_EVAL: {
+        char *reply = "+OK\r\n";
+        return msg_append(response, (uint8_t *)reply, nc_strlen(reply));
+    }
     default:
         NOT_REACHED();
         return NC_ERROR;
