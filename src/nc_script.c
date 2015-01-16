@@ -36,7 +36,7 @@ strip(lua_State *L)
  
     front = luaL_checklstring(L, 1, &size);
     end   = &front[size - 1];
-    
+
     for ( ; size && isspace(*front) ; size-- , front++)
         ;
     for ( ; size && isspace(*end) ; size-- , end--)
@@ -239,6 +239,8 @@ slots_set_replicaset(lua_State *L) {
     lua_getglobal(L, "__pool");
     pool = (struct server_pool*)lua_touserdata(L, -1);
 
+    log_debug(LOG_VERB, "update slots %d-%d", start, end);
+
     for (i = start; i <= end; i++) {
         pool->slots[i] = rs;
     }
@@ -326,7 +328,10 @@ int script_init(struct server_pool *pool)
     L = luaL_newstate();                        /* Create Lua state variable */
     pool->L = L;
     luaL_openlibs(L);                           /* Load Lua libraries */
-    luaL_loadfile(L, "test.lua");
+    if (luaL_loadfile(L, "test.lua")) {
+        log_debug(LOG_VERB, "init lua script failed - %s", lua_tostring(L, -1));
+        return 1;
+    }
 
     lua_getglobal(L, "string");
     luaL_setfuncs(L, stringext, 0);

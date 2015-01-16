@@ -21,6 +21,7 @@
 
 #include <nc_core.h>
 #include <nc_proto.h>
+#include <nc_script.h>
 
 #define REPL_OK     "+OK\r\n"
 #define REPL_PONG   "+PONG\r\n"
@@ -2759,6 +2760,7 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
             server = pool->slots[idx]->master;
         } else {
+            /*
             struct array *slaves;
             slaves = &pool->slots[idx]->tagged_servers[0];
             idx = random() % array_n(slaves);
@@ -2766,7 +2768,12 @@ redis_routing(struct context *ctx, struct server_pool *pool,
             if (server == NULL) {
                 return NULL;
             }
+            */
+            server = pool->slots[idx]->master;
         }
+
+        log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' with addr ':%d' on slot %d", keylen,
+                  key, server->pname.len, server->pname.data, server->port, idx);
 
         /* pick a connection to a given server */
         s_conn = server_conn(server);
@@ -2821,24 +2828,31 @@ redis_pre_req_forward(struct context *ctx, struct conn *conn, struct msg *msg)
 rstatus_t
 redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg) 
 {
-    if (!s_conn->client && !s_conn->proxy) {
-        struct msg *pmsg;
-        struct conn *c_conn;
+    struct msg *pmsg;
+    struct conn *c_conn;
+    int64_t t_start, t_end;
+
+    pmsg = msg->peer;
+    c_conn = pmsg->owner;
+
+    if (c_conn == NULL) {
         struct server *server;
         struct server_pool *pool;
         struct mbuf *mbuf;
 
-        pmsg = msg->peer;
-        c_conn = pmsg->owner;
         server = s_conn->owner;
         pool = server->owner;
 
         /* FIXME: check length */
         mbuf = STAILQ_FIRST(&msg->mhdr);
-        script_call(pool, mbuf->start, mbuf->end - mbuf->start, "update_cluster_nodes");
+        t_start = nc_usec_now();
+        script_call(pool, mbuf->start, mbuf->last - mbuf->start, "update_cluster_nodes");
+        t_end = nc_usec_now();
+        log_debug(LOG_VERB, "update slots in %lldus", t_end - t_start);
         req_put(pmsg);
         return NC_ERROR;
     }
+
     return NC_OK;
 }
 
@@ -2869,10 +2883,11 @@ redis_pool_tick(struct server_pool *pool)
 
         status = build_probe_message(msg);
         if (status != NC_OK) {
+            log_debug(LOG_VERB, "server: failed to build probe message");
             msg_put(msg);
             return;
         }
-        
+
         idx = random() % 16384;
         server = pool->slots[idx]->master;
 

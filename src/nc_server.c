@@ -944,7 +944,9 @@ server_pool_each_tick(void *elem, void *data)
     return NC_OK;
 }
 
-void server_pool_tick(struct context *ctx) {
+void 
+server_pool_tick(struct context *ctx) 
+{
     struct array *pools;
 
     pools = &ctx->pool;
