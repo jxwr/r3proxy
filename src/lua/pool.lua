@@ -24,10 +24,6 @@ function _M.fetch_server(self, config)
       s = table.remove(self._se_pool, 1)
    end
    
-   if s:connect() then
-      return nil
-   end
-
    return s
 end
 
@@ -63,11 +59,11 @@ function _M.set_servers(self, configs)
       local id = config.id
 
       if self.server_map[id] then
-         -- Move server to tmp server map
-         tmp_server_map[id] = self.server_map[id]
+         local s = self.server_map[id]
+         s:update_config(config)
+         tmp_server_map[id] = s
          self.server_map[id] = nil
       else
-         -- Fetch server from resource pool
          tmp_server_map[id] = self:fetch_server(config)
       end
    end

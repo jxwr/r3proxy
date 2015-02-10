@@ -48,16 +48,21 @@ function _M.new(self, config)
       room = config.room,
       ranges = config.ranges,
    }
-   s.raw = C.ffi_server_new(__pool, config.name, s.id, s.ip, s.port)
-   print("local_zone:" .. _M.local_zone .. " zone:" .. s.zone)
-   s.tag_idx = _M.zone_index[s.zone]
-   if s.tag_idx == nil then
-      s.tag_idx = -1
-   end
-   for z,i in pairs(_M.zone_index) do
-      print(i,z)
-   end
+   s.raw = C.ffi_server_new(__pool, config.addr, s.id, s.ip, s.port)
+   s.tag_idx = _M.zone_index[s.zone] or -1
    return setmetatable(s, mt)
+end
+
+function _M.update_config(self, config)
+   self.readable = config.readable
+   self.writable = config.writable
+   self.role = config.role
+   self.master_id = config.master_id
+   self.region = config.region
+   self.zone = config.zone
+   self.room = config.room
+   self.ranges = config.ranges
+   self.tag_idx = _M.zone_index[self.zone] or -1
 end
 
 function _M.connect(self)

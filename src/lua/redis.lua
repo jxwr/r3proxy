@@ -46,17 +46,16 @@ function parse(body)
       end
 
       if role == "master" then
-         local slots = {}
+         local ranges = {}
          for i = 11, #xs do
-            local range = xs[i]
-            local slot = {}
-            local pair = range:split("-")
+            local range = {}
+            local pair = xs[i]:split("-")
 
-            slot.left = tonumber(pair[1])
-            slot.right = tonumber(pair[2])
-            table.insert(slots, slot)
+            range.left = tonumber(pair[1])
+            range.right = tonumber(pair[2])
+            table.insert(ranges, range)
          end
-         c.ranges = slots
+         c.ranges = ranges
       end
 
       table.insert(configs, c)
@@ -65,14 +64,9 @@ function parse(body)
 end
 
 function update_cluster_nodes(msg)
-
    -- parse message returned by 'cluster nodes'
-   local configs, err = parse(msg)
+   local configs = parse(msg)
    
-   if err then
-      return 1
-   end
-
    -- reconstruct servers, fix adds and drops
    pool:set_servers(configs)
 

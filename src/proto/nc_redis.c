@@ -2765,15 +2765,15 @@ redis_routing(struct context *ctx, struct server_pool *pool,
             int i;
 
             for (i = 0; i < NC_MAXTAGNUM; i++) {
-                uint32_t n;
+                uint32_t n, sidx;
                 struct array *slaves;
 
                 slaves = &pool->slots[idx]->tagged_servers[i];
                 if (array_n(slaves) == 0) {
                     continue;
                 }
-                idx = random() % array_n(slaves);
-                server = *(struct server**)array_get(slaves, idx);
+                sidx = random() % array_n(slaves);
+                server = *(struct server**)array_get(slaves, sidx);
                 if (server == NULL) {
                     return NULL;
                 }
@@ -2781,10 +2781,10 @@ redis_routing(struct context *ctx, struct server_pool *pool,
             }
         }
 
-        log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' with addr ':%d' on slot %d", keylen,
-                  key, server->pname.len, server->pname.data, server->port, idx);
+        log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' on slot %d", 
+                  keylen, key, server->pname.len, server->pname.data, idx);
 
-        /* pick a connection to a given server */
+        /* pick a connection to the given server */
         s_conn = server_conn(server);
         if (s_conn == NULL) {
             return NULL;

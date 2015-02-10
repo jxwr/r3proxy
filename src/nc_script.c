@@ -135,7 +135,7 @@ ffi_server_new(struct server_pool *pool,
     string_init(&s->name);
     string_copy(&s->name, id, strlen(id));
     string_init(&s->pname);
-    string_copy(&s->pname, ip, strlen(ip));
+    string_copy(&s->pname, name, strlen(name));
     string_init(&address);
     string_copy(&address, ip, strlen(ip));
     /* set port */
@@ -207,7 +207,7 @@ ffi_slots_set_replicaset(struct server_pool *pool,
 {
     int i;
 
-    log_debug(LOG_VERB, "update slots %d-%d", left, right);
+    log_debug(LOG_VERB, "script: update slots %d-%d", left, right);
 
     for (i = left; i <= right; i++) {
         pool->slots[i] = rs;
@@ -268,7 +268,7 @@ int script_call(struct server_pool *pool, const char *body, int len, const char 
 {
     lua_State *L = pool->L;
 
-    log_debug(LOG_VERB, "update cluster nodes");
+    log_debug(LOG_VERB, "script: update redis cluster nodes");
 
     lua_getglobal(L, func_name);
     lua_pushlstring(L, body, (size_t)len);
@@ -276,6 +276,23 @@ int script_call(struct server_pool *pool, const char *body, int len, const char 
     /* Call update function */
     if (lua_pcall(L, 1, 0, 0) != 0) {
         log_debug(LOG_VERB, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
+    }
+
+    if (1) {
+        int i = 0;
+        struct replicaset *last_rs = NULL;
+        for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
+            struct replicaset *rs = pool->slots[i];
+            if (last_rs != rs) {
+                last_rs = rs;
+                log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d]",
+                          i, rs->master->pname.len, rs->master->pname.data,
+                          array_n(&rs->tagged_servers[0]),
+                          array_n(&rs->tagged_servers[1]),
+                          array_n(&rs->tagged_servers[2]),
+                          array_n(&rs->tagged_servers[3]));
+            }
+        }
     }
 
     return 0;
