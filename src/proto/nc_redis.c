@@ -2762,17 +2762,23 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
             server = pool->slots[idx]->master;
         } else {
-            /*
-            struct array *slaves;
-            slaves = &pool->slots[idx]->tagged_servers[0];
-            idx = random() % array_n(slaves);
-            server = *(struct server**)array_get(slaves, idx);
-            if (server == NULL) {
-                return NULL;
+            int i;
+
+            for (i = 0; i < NC_MAXTAGNUM; i++) {
+                uint32_t n;
+                struct array *slaves;
+
+                slaves = &pool->slots[idx]->tagged_servers[i];
+                if (array_n(slaves) == 0) {
+                    continue;
+                }
+                idx = random() % array_n(slaves);
+                server = *(struct server**)array_get(slaves, idx);
+                if (server == NULL) {
+                    return NULL;
+                }
+                break;
             }
-            */
-            log_debug(LOG_VERB, "master:%p",pool->slots[idx]->master);
-            server = pool->slots[idx]->master;
         }
 
         log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' with addr ':%d' on slot %d", keylen,

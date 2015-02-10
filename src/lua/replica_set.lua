@@ -5,7 +5,6 @@ ffi.cdef[[
       struct replicaset;
       struct server;
       struct server_pool;
-      struct string { uint32_t len; uint8_t  *data; };
 
       int ffi_slots_set_replicaset(struct server_pool *pool, struct replicaset *rs, int left, int right);
 
@@ -13,12 +12,7 @@ ffi.cdef[[
       struct replicaset* ffi_replicaset_deinit(struct replicaset *rs);
       struct replicaset* ffi_replicaset_delete(struct replicaset *rs);
       void ffi_replicaset_set_master(struct replicaset *rs, struct server *server);
-      void ffi_replicaset_add_slave(struct replicaset *rs, int tag_idx, struct server *server);
-
-      struct string ffi_pool_get_region(struct server_pool *pool);
-      struct string ffi_pool_get_zone(struct server_pool *pool);
-      struct string ffi_pool_get_room(struct server_pool *pool);
-      struct string ffi_pool_get_failover_zones(struct server_pool *pool);
+      void ffi_replicaset_add_tagged_server(struct replicaset *rs, int tag_idx, struct server *server);
 ]]
 
 local _M = {}
@@ -35,8 +29,10 @@ function _M.set_master(self, s)
    C.ffi_replicaset_set_master(self.raw, s.raw)
 end
 
-function _M.add_slave(self, s)
-   C.ffi_replicaset_add_slave(self.raw, 0, s.raw)
+function _M.add_tagged_server(self, s)
+   if s.tag_idx >= 0 then
+      C.ffi_replicaset_add_tagged_server(self.raw, s.tag_idx, s.raw)
+   end
 end
 
 function _M.bind_slots(self)

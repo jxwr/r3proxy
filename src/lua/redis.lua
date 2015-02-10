@@ -21,6 +21,8 @@ function parse(body)
          role = "slave"
       end
 
+      local loc = xs[2]:split(":")
+
       local c = {
          id = xs[3],
          addr = xs[4],
@@ -29,7 +31,19 @@ function parse(body)
          role = role,
          master_id = xs[6],
          status = xs[10],
+         readable = false,
+         writable = false,
+         region = loc[1],
+         zone = loc[2],
+         room = loc[3],
       }
+
+      if string.find(xs[1], "r") then
+         c.readable = true
+      end
+      if string.find(xs[1], "w") then
+         c.writable = true
+      end
 
       if role == "master" then
          local slots = {}

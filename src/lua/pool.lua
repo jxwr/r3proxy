@@ -89,6 +89,7 @@ function _M.build_replica_sets(self)
       if s:is_master() then
          local rs = self:fetch_replica_set()
          rs:set_master(s)
+         rs:add_tagged_server(s)
          table.insert(tmp_rss, rs)
       end
    end
@@ -98,7 +99,7 @@ function _M.build_replica_sets(self)
       if s:is_slave() then
          local ms = self.server_map[s.master_id]
          local rs = ms.replica_set
-         rs:add_slave(s)
+         rs:add_tagged_server(s)
       end
    end
 

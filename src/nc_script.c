@@ -84,7 +84,7 @@ ffi_replicaset_get_master(struct replicaset *rs)
 }
 
 void
-ffi_replicaset_add_slave(struct replicaset *rs, int tag_idx, struct server *server)
+ffi_replicaset_add_tagged_server(struct replicaset *rs, int tag_idx, struct server *server)
 {
     struct server **s = array_push(&rs->tagged_servers[tag_idx]);
     *s = server;
