@@ -52,102 +52,99 @@ static const luaL_Reg stringext[] = {
     {NULL, NULL}
 };
 
-/* module replicaset */
-static int 
-replicaset_new(lua_State *L) {
-    size_t i, nbytes = sizeof(struct replicaset);
-    struct replicaset *rs = (struct replicaset*)lua_newuserdata(L, nbytes);
+struct replicaset* 
+ffi_replicaset_new(void)
+{
+    int i;
+    struct replicaset *rs;
+
+    rs = nc_alloc(sizeof(struct replicaset));
     if (rs == NULL) {
         log_error("failed to allocate memory");
+        return NULL;
     }
+
     for (i = 0; i < NC_MAXTAGNUM; i++) {
         array_init(&rs->tagged_servers[i], 2, sizeof(struct server *));
     }
-    return 1;
+
+    return rs;
 }
 
-static int
-replicaset_set_master(lua_State *L) {
-    struct replicaset *rs = (struct replicaset*)lua_touserdata(L, 1);
-    struct server *master = (struct server*)lua_touserdata(L, 2);
-    rs->master = master;
-    return 0;
+void
+ffi_replicaset_set_master(struct replicaset *rs, struct server *server)
+{
+    rs->master = server;
 }
 
-static int
-replicaset_get_master(lua_State *L) {
-    struct replicaset *rs = (struct replicaset*)lua_touserdata(L, 1);
-    lua_pushlightuserdata(L, rs->master);
-    return 1;
+struct server*
+ffi_replicaset_get_master(struct replicaset *rs)
+{
+    return rs->master;
 }
 
-static int
-replicaset_add_slave(lua_State *L) {
-    struct replicaset *rs = (struct replicaset*)lua_touserdata(L, 1);
-    int idx = lua_tonumber(L, 2);
-    struct server *slave = (struct server*)lua_touserdata(L, 3);
-    struct server **s = array_push(&rs->tagged_servers[idx]);
-    *s = slave;
-    return 0;
+void
+ffi_replicaset_add_slave(struct replicaset *rs, int tag_idx, struct server *server)
+{
+    struct server **s = array_push(&rs->tagged_servers[tag_idx]);
+    *s = server;
 }
 
-static const luaL_Reg replicaset_funcs[] = {
-    {"new", replicaset_new},
-    {"set_master", replicaset_set_master},
-    {"get_master", replicaset_get_master},
-    {"add_slave", replicaset_add_slave},
-    {NULL, NULL}
-};
+void
+ffi_replicaset_deinit(struct replicaset *rs)
+{
+    int i;
 
-static int 
-luaopen_replicaset(lua_State* L) {
-    luaL_newlib(L, replicaset_funcs);
-    return 1;
+    for (i = 0; i < NC_MAXTAGNUM; i++) {
+        uint32_t n = array_n(&rs->tagged_servers[i]);
+        while (n--) {
+            array_pop(&rs->tagged_servers[i]);
+        }
+    }
+    rs->master = NULL;
 }
 
-/* module server */
-static int 
-server_new(lua_State *L) {
+void
+ffi_replicaset_delete(struct replicaset *rs)
+{
+    ffi_replicaset_deinit(rs);
+    nc_free(rs);
+}
+
+struct server*
+ffi_server_new(struct server_pool *pool, 
+                        const char *name,
+                        const char *id, 
+                        const char *ip, int port)
+{
     struct server *s;
-    struct server_pool *pool;
     const char* tmpstr;
     struct string address;
     rstatus_t status;
 
-    s = (struct server*)lua_newuserdata(L, sizeof(struct server));
+    s = nc_alloc(sizeof(struct server));
     if (s == NULL) {
         log_error("failed to allocate memory");
+        return NULL;
     }
 
-    /* init server struct */
-    /* set owner */
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
     s->owner = pool;
-    lua_pop(L, 1);
-
     s->idx = 0;
     s->weight = 1;
     /* set name */
-    tmpstr = lua_tostring(L, 1);
     string_init(&s->name);
-    string_copy(&s->name, tmpstr, strlen(tmpstr));
+    string_copy(&s->name, id, strlen(id));
     string_init(&s->pname);
-    string_copy(&s->pname, tmpstr, strlen(tmpstr));
-    /* set ip */
-    tmpstr = lua_tostring(L, 2);
+    string_copy(&s->pname, ip, strlen(ip));
     string_init(&address);
-    string_copy(&address, tmpstr, strlen(tmpstr));
+    string_copy(&address, ip, strlen(ip));
     /* set port */
-    s->port = (uint16_t)lua_tointeger(L, 3);
+    s->port = port;
 
     status = nc_resolve(&address, s->port, &s->sockinfo);
     if (status != NC_OK) {
         log_error("conf: failed to resolve %.*s:%d", address.len, address.data, s->port);
-        string_deinit(&address);
-        lua_pop(L, 1);
-        lua_pushnil(L);
-        return 1;
+        return NULL;
     }
 
     s->family = s->sockinfo.family;
@@ -159,23 +156,19 @@ server_new(lua_State *L) {
 
     s->next_retry = 0LL;
     s->failure_count = 0;
-
-    return 1;
+    return s;
 }
 
-static int
-server_preconnect(lua_State *L) {
-    struct server *server;
+int
+ffi_server_connect(struct server *server) {
     struct server_pool *pool;
     struct conn *conn;
     rstatus_t status;
 
-    server = (struct server*)lua_touserdata(L, 1);
     pool = server->owner;
     conn = server_conn(server);
     if (conn == NULL) {
-        lua_pushboolean(L, 0);
-        return 1;
+        return 0;
     }
 
     status = server_connect(pool->ctx, server, conn);
@@ -183,20 +176,16 @@ server_preconnect(lua_State *L) {
         log_warn("script: connect to server '%.*s' failed, ignored: %s",
                  server->pname.len, server->pname.data, strerror(errno));
         server_close(pool->ctx, conn);
-        lua_pushboolean(L, 0);
-        return 1;
+        return 0;
     }
-
-    lua_pushboolean(L, 1);
     return 1;
 }
 
-static int
-server_disconnect(lua_State *L) {
-    struct server *server;
+int
+ffi_server_disconnect(struct server *server)
+{
     struct server_pool *pool;
 
-    server = (struct server*)lua_touserdata(L, 1);
     pool = server->owner;
     
     while (!TAILQ_EMPTY(&server->s_conn_q)) {
@@ -208,119 +197,47 @@ server_disconnect(lua_State *L) {
         conn->close(pool->ctx, conn);
     }
 
-    return 0;
-}
-
-static const luaL_Reg server_funcs[] = {
-    {"new", server_new},
-    {"connect", server_preconnect},
-    {"disconnect", server_disconnect},
-    {NULL, NULL}
-};
-
-static int 
-luaopen_server(lua_State* L) {
-    luaL_newlib(L, server_funcs);
     return 1;
 }
 
-/* module slots */
+int
+ffi_slots_set_replicaset(struct server_pool *pool, 
+                                  struct replicaset *rs, 
+                                  int left, int right)
+{
+    int i;
 
-static int
-slots_set_replicaset(lua_State *L) {
-    struct server_pool *pool;
-    struct replicaset *rs;
-    int i, start, end;
+    log_debug(LOG_VERB, "update slots %d-%d", left, right);
 
-    rs = (struct replicaset*)lua_touserdata(L, 1);
-    start = (int)lua_tonumber(L, 2);
-    end = (int)lua_tonumber(L, 3);
-
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
-
-    log_debug(LOG_VERB, "update slots %d-%d", start, end);
-
-    for (i = start; i <= end; i++) {
+    for (i = left; i <= right; i++) {
         pool->slots[i] = rs;
     }
 
-    return 0;
-}
-
-static const luaL_Reg slots_funcs[] = {
-    {"set_replicaset", slots_set_replicaset},
-    {NULL, NULL}
-};
-
-static int 
-luaopen_slots(lua_State* L) {
-    luaL_newlib(L, slots_funcs);
     return 1;
 }
 
-/* module pool */
-
-static int
-pool_get_region(lua_State *L) {
-    struct server_pool *pool;
-
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
-
-    lua_pushlstring(L, (const char*)pool->region.data, pool->region.len);
-    return 1;
+struct string
+ffi_pool_get_region(struct server_pool *pool)
+{
+    return pool->region;
 }
 
-static int
-pool_get_avaliable_zone(lua_State *L) {
-    struct server_pool *pool;
-
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
-
-    lua_pushlstring(L, (const char*)pool->avaliable_zone.data, pool->avaliable_zone.len);
-    return 1;
+struct string
+ffi_pool_get_zone(struct server_pool *pool) {
+    return pool->zone;
 }
 
-static int
-pool_get_failover_zones(lua_State *L) {
-    struct server_pool *pool;
-
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
-
-    lua_pushlstring(L, (const char*)pool->failover_zones.data, pool->failover_zones.len);
-    return 1;
+struct string
+ffi_pool_get_room(struct server_pool *pool) {
+    return pool->room;
 }
 
-static int
-pool_get_machine_room(lua_State *L) {
-    struct server_pool *pool;
-
-    lua_getglobal(L, "__pool");
-    pool = (struct server_pool*)lua_touserdata(L, -1);
-
-    lua_pushlstring(L, (const char*)pool->machine_room.data, pool->machine_room.len);
-    return 1;
-}
-
-static const luaL_Reg pool_funcs[] = {
-    {"region", pool_get_region},
-    {"avaliable_zone", pool_get_avaliable_zone},
-    {"failover_zones", pool_get_failover_zones},
-    {"machine_room", pool_get_machine_room},
-    {NULL, NULL}
-};
-
-static int 
-luaopen_pool(lua_State* L) {
-    luaL_newlib(L, pool_funcs);
-    return 1;
+struct string
+ffi_pool_get_failover_zones(struct server_pool *pool) {
+    return pool->failover_zones;
 }
 
 /* init */
-
 int script_init(struct server_pool *pool)
 {
     lua_State *L;
@@ -328,26 +245,17 @@ int script_init(struct server_pool *pool)
     L = luaL_newstate();                        /* Create Lua state variable */
     pool->L = L;
     luaL_openlibs(L);                           /* Load Lua libraries */
-    if (luaL_loadfile(L, "test.lua")) {
+    if (luaL_loadfile(L, "lua/redis.lua")) {
         log_debug(LOG_VERB, "init lua script failed - %s", lua_tostring(L, -1));
         return 1;
     }
 
     lua_getglobal(L, "string");
-    luaL_setfuncs(L, stringext, 0);
+    luaL_register(L, 0, stringext);
     lua_setglobal(L, "string");
 
     lua_pushlightuserdata(L, pool);
     lua_setglobal(L, "__pool");
-
-    luaL_requiref(L, "replicaset", &luaopen_replicaset, 1);
-    lua_pop(L, 1);
-    luaL_requiref(L, "server", &luaopen_server, 1);
-    lua_pop(L, 1);
-    luaL_requiref(L, "slots", &luaopen_slots, 1);
-    lua_pop(L, 1);
-    luaL_requiref(L, "pool", &luaopen_pool, 1);
-    lua_pop(L, 1);
 
     if (lua_pcall(L, 0, 0, 0) != 0) {
         log_error("call lua script failed - %s", lua_tostring(L, -1));
@@ -363,11 +271,11 @@ int script_call(struct server_pool *pool, const char *body, int len, const char 
     log_debug(LOG_VERB, "update cluster nodes");
 
     lua_getglobal(L, func_name);
-    lua_pushlstring(L, body, len);
+    lua_pushlstring(L, body, (size_t)len);
 
-    /* call update function */
+    /* Call update function */
     if (lua_pcall(L, 1, 0, 0) != 0) {
-        log_debug(LOG_VERB, "call %s failed - %s", func_name, lua_tostring(L, -1));
+        log_debug(LOG_VERB, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
     }
 
     return 0;

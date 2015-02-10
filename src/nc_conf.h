@@ -91,9 +91,9 @@ struct conf_pool {
     int                server_retry_timeout;  /* server_retry_timeout: in msec */
     int                server_failure_limit;  /* server_failure_limit: */
     struct string      region;                /* region: bj, hz */
-    struct string      avaliable_zone;        /* avaliable_zone:  */
-    struct string      failover_zones;        /* failover avaliable_zones */
-    struct string      machine_room;          /* machine_room: */
+    struct string      zone;                  /* avaliablity zone */
+    struct string      room;                  /* machine room */
+    struct string      failover_zones;        /* failover avaliablity zones */
     struct array       server;                /* servers: conf_server[] */
     unsigned           valid:1;               /* valid? */
 };

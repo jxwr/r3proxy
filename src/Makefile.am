@@ -8,12 +8,13 @@ AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
 AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
-AM_CPPFLAGS += -I $(top_srcdir)/contrib/lua-5.3.0/src/
+AM_CPPFLAGS += -I $(top_srcdir)/contrib/LuaJIT-2.0.3/src
 
 AM_CFLAGS = 
 # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
 AM_CFLAGS += -fno-strict-aliasing
 AM_CFLAGS += -Wall -Wshadow
+AM_CFLAGS += -Wl,-E
 AM_CFLAGS += -Wpointer-arith
 AM_CFLAGS += -Winline
 AM_CFLAGS += -Wunused-function -Wunused-variable -Wunused-value
@@ -60,4 +61,4 @@ nutcracker_LDADD = $(top_builddir)/src/hashkit/libhashkit.a
 nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
 nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
-nutcracker_LDADD += $(top_builddir)/contrib/lua-5.3.0/src/liblua.a
+nutcracker_LDADD += $(top_builddir)/contrib/LuaJIT-2.0.3/src/libluajit.a -ldl

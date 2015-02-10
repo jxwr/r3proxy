@@ -608,7 +608,7 @@ server_pool_update(struct server_pool *pool)
 }
 
 uint32_t
-server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
+server_pool_hash(struct server_pool *pool, const uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL);
@@ -791,7 +791,6 @@ static rstatus_t
 server_pool_each_set_tick_callback(void *elem, void *data)
 {
     struct server_pool *sp = elem;
-    struct context *ctx = data;
 
     if (sp->redis) {
         sp->pool_tick = redis_pool_tick;
@@ -934,9 +933,7 @@ server_pool_deinit(struct array *server_pool)
 static rstatus_t
 server_pool_each_tick(void *elem, void *data)
 {
-    rstatus_t status;
     struct server_pool *pool = elem;
-    struct array *servers;
 
     pool->pool_tick(pool);
     

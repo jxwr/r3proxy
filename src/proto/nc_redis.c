@@ -31,7 +31,7 @@
 #define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
 
 #define REDIS_UPDATE_TICKS (10000/NC_TICK_INTERVAL) /* 10s */
-#define REDIS_CLUSTER_NODES_MESSAGE "*2\r\n$7\r\ncluster\r\n$5\r\nnodes\r\n"
+#define REDIS_CLUSTER_NODES_MESSAGE "*3\r\n$7\r\ncluster\r\n$5\r\nnodes\r\n$5\r\nextra\r\n"
 
 static rstatus_t redis_handle_auth_req(struct msg *request, struct msg *response);
 
@@ -2771,6 +2771,7 @@ redis_routing(struct context *ctx, struct server_pool *pool,
                 return NULL;
             }
             */
+            log_debug(LOG_VERB, "master:%p",pool->slots[idx]->master);
             server = pool->slots[idx]->master;
         }
 

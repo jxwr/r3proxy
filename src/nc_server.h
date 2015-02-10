@@ -95,7 +95,6 @@ struct server {
 
 struct replicaset {
     struct server *master;
-    struct array standby;
     struct array tagged_servers[NC_MAXTAGNUM];
 };
 
@@ -141,10 +140,11 @@ struct server_pool {
     unsigned           need_update_slots:1;  /* need_update_slots(rediscluster) */
     pool_tick_t        pool_tick;            /* ticker */
     int64_t            ticks_left;
-    struct string      region;               /* region: bj, hz */
-    struct string      avaliable_zone;       /* avaliable_zone: */
-    struct string      failover_zones;       /* failover avaliable_zones */
-    struct string      machine_room;         /* machine_room: */
+    struct string      region;               /* region */
+    struct string      zone;                 /* avaliablity zone */
+    struct string      room;                 /* machine room */
+    struct string      failover_zones;       /* failover avaliablity zones */
+
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
     lua_State *L;
 };
@@ -168,7 +168,7 @@ rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);
-uint32_t server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen);
+uint32_t server_pool_hash(struct server_pool *pool, const uint8_t *key, uint32_t keylen);
 void server_pool_tick(struct context *ctx);
 
 #endif

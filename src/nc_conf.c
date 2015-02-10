@@ -106,17 +106,17 @@ static struct command conf_commands[] = {
       conf_set_string,
       offsetof(struct conf_pool, region) },
 
-    { string("avaliable_zone"),
+    { string("zone"),
       conf_set_string,
-      offsetof(struct conf_pool, avaliable_zone) },
+      offsetof(struct conf_pool, zone) },
+
+    { string("room"),
+      conf_set_string,
+      offsetof(struct conf_pool, room) },
 
     { string("failover_zones"),
       conf_set_string,
       offsetof(struct conf_pool, failover_zones) },
-
-    { string("machine_room"),
-      conf_set_string,
-      offsetof(struct conf_pool, machine_room) },
 
     { string("servers"),
       conf_add_server,
@@ -314,9 +314,9 @@ conf_pool_each_transform(void *elem, void *data)
     sp->preconnect = cp->preconnect ? 1 : 0;
 
     sp->region = cp->region;
-    sp->avaliable_zone = cp->avaliable_zone;
+    sp->zone = cp->zone;
+    sp->room = cp->room;
     sp->failover_zones = cp->failover_zones;
-    sp->machine_room = cp->machine_room;
 
     for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
         sp->slots[i] = NULL;
@@ -1469,7 +1469,6 @@ conf_set_listen(struct conf *cf, struct command *cmd, void *conf)
     if (value->data[0] == '/') {
         uint8_t *q, *start, *perm;
         uint32_t permlen;
-
 
         /* parse "socket_path permissions" from the end */
         p = value->data + value->len -1;
