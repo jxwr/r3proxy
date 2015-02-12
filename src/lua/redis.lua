@@ -48,6 +48,11 @@ function parse(body)
       if role == "master" then
          local ranges = {}
          for i = 11, #xs do
+            -- skip importing/migrating info
+            if string.sub(xs[i],1,1) == "[" then
+               break
+            end
+
             local range = {}
             local pair = xs[i]:split("-")
 
@@ -64,6 +69,10 @@ function parse(body)
 end
 
 function update_cluster_nodes(msg)
+   if string.sub(msg,1,3) == "+OK" or string.sub(msg,1,3) == "$-1" then
+      return
+   end
+
    -- parse message returned by 'cluster nodes'
    local configs = parse(msg)
    
@@ -81,3 +90,5 @@ function update_cluster_nodes(msg)
 end
 
 print ("Script Init Done")
+
+

@@ -111,6 +111,7 @@ struct event_base;
 #include <nc_rbtree.h>
 #include <nc_log.h>
 #include <nc_util.h>
+#include <nc_assoc.h>
 #include <event/nc_event.h>
 #include <nc_stats.h>
 #include <nc_mbuf.h>

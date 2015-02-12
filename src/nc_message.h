@@ -171,6 +171,8 @@ typedef enum msg_parse_result {
     ACTION( RSP_REDIS_INTEGER )                                                                     \
     ACTION( RSP_REDIS_BULK )                                                                        \
     ACTION( RSP_REDIS_MULTIBULK )                                                                   \
+    ACTION( RSP_REDIS_ASK )                                                                         \
+    ACTION( RSP_REDIS_MOVED )                                                                       \
     ACTION( SENTINEL )                                                                              \
 
 
@@ -220,6 +222,9 @@ struct msg {
     msg_type_t           type;            /* message type */
 
     struct array         *keys;           /* array of keypos, for req */
+
+    uint8_t              *val_start;      /* value start */
+    uint8_t              *val_end;        /* value end */
 
     uint32_t             vlen;            /* value length (memcache) */
     uint8_t              *end;            /* end marker (memcache) */

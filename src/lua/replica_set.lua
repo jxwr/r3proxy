@@ -32,7 +32,6 @@ end
 function _M.add_tagged_server(self, s)
    if s.tag_idx >= 0 and s.readable then
       C.ffi_replicaset_add_tagged_server(self.raw, s.tag_idx, s.raw)
-      s:connect()
    end
 end
 

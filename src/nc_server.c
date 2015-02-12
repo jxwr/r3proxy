@@ -690,7 +690,7 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 struct conn *
-server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
+server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
                  uint32_t keylen)
 {
     rstatus_t status;
@@ -842,6 +842,20 @@ server_pool_each_run(void *elem, void *data)
     return server_pool_run(elem);
 }
 
+static rstatus_t
+server_pool_each_set_table(void *elem, void *data)
+{
+    struct server_pool *sp = elem;
+
+    sp->server_table = assoc_create_table(sp->key_hash, array_n(&sp->server));
+    if (sp->server_table == NULL) {
+        log_debug(LOG_WARN, "create server table failed");
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
 rstatus_t
 server_pool_init(struct array *server_pool, struct array *conf_pool,
                  struct context *ctx)
@@ -870,6 +884,12 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
     status = array_each(server_pool, server_pool_each_set_owner, ctx);
     if (status != NC_OK) {
         server_pool_deinit(server_pool);
+        return status;
+    }
+
+   /* update addr to server table */
+    status = array_each(server_pool, server_pool_each_set_table, ctx);
+    if (status != NC_OK) {
         return status;
     }
 

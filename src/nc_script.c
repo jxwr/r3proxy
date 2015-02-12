@@ -118,7 +118,6 @@ ffi_server_new(struct server_pool *pool,
                         const char *ip, int port)
 {
     struct server *s;
-    const char* tmpstr;
     struct string address;
     rstatus_t status;
 
@@ -202,8 +201,8 @@ ffi_server_disconnect(struct server *server)
 
 int
 ffi_slots_set_replicaset(struct server_pool *pool, 
-                                  struct replicaset *rs, 
-                                  int left, int right)
+                         struct replicaset *rs, 
+                         int left, int right)
 {
     int i;
 
@@ -235,6 +234,18 @@ ffi_pool_get_room(struct server_pool *pool) {
 struct string
 ffi_pool_get_failover_zones(struct server_pool *pool) {
     return pool->failover_zones;
+}
+
+void
+ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server)
+{
+    assoc_set(pool->server_table, name, strlen(name), server);
+}
+
+void
+ffi_server_table_delete(struct server_pool *pool, const char *name)
+{
+    assoc_delete(pool->server_table, name, strlen(name));
 }
 
 /* init */

@@ -1,5 +1,15 @@
 package.path = package.path .. ";lua/?.lua;../?.lua"
 
+local ffi = require("ffi")
+local C = ffi.C
+
+ffi.cdef[[
+      struct server;
+
+      void ffi_server_table_delete(struct server_pool *pool, const char *name);
+      void ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server);
+]]
+
 local server = require("server")
 local replica_set = require("replica_set")
 
@@ -73,7 +83,16 @@ function _M.set_servers(self, configs)
 
    -- Drop servers that we no longer use
    for id, s in pairs(tmp_server_map) do
+      local name = string.format("%s:%d",s.ip,s.port)
+      C.ffi_server_table_delete(__pool, name)
       self:put_server(s)
+   end
+
+   -- Set server addr->server map
+   for _, s in pairs(self.server_map) do
+      local name = string.format("%s:%d",s.ip,s.port)
+      s:connect()
+      C.ffi_server_table_set(__pool, name, s.raw)
    end
 end
 

@@ -53,6 +53,7 @@ nutcracker_SOURCES =			\
 	nc_string.c nc_string.h		\
 	nc_array.c nc_array.h		\
 	nc_util.c nc_util.h		\
+	nc_assoc.c nc_assoc.h		\
 	nc_script.c nc_script.h		\
 	nc_queue.h			\
 	nc.c

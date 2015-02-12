@@ -230,18 +230,19 @@ rsp_forward(struct context *ctx, struct conn *s_conn, struct msg *msg)
     ASSERT(pmsg->request && !pmsg->done);
 
     s_conn->dequeue_outq(ctx, s_conn, pmsg);
-    pmsg->done = 1;
 
     /* establish msg <-> pmsg (response <-> request) link */
     pmsg->peer = msg;
     msg->peer = pmsg;
 
-    msg->pre_coalesce(msg);
-
     if (msg->pre_rsp_forward != NULL &&
         msg->pre_rsp_forward(ctx, s_conn, msg) != NC_OK) {
         return;
     }
+
+    pmsg->done = 1;
+
+    msg->pre_coalesce(msg);
 
     c_conn = pmsg->owner;
     ASSERT(c_conn->client && !c_conn->proxy);
