@@ -608,7 +608,7 @@ server_pool_update(struct server_pool *pool)
 }
 
 uint32_t
-server_pool_hash(struct server_pool *pool, const uint8_t *key, uint32_t keylen)
+server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 {
     ASSERT(array_n(&pool->server) != 0);
     ASSERT(key != NULL);
@@ -690,7 +690,7 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
 }
 
 struct conn *
-server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key,
+server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key,
                  uint32_t keylen)
 {
     rstatus_t status;

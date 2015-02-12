@@ -608,6 +608,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     status = req_enqueue(ctx, s_conn, c_conn, msg);
     if (status != NC_OK) {
+        req_put(msg);
         return;
     }
 

@@ -6,8 +6,10 @@
 #include <string.h>
 #include <stddef.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #include <nc_core.h>
+#include <nc_script.h>
 
 static int 
 split(lua_State *L) 
@@ -18,7 +20,7 @@ split(lua_State *L)
     int i = 1;
     lua_newtable(L);
     while ((token = strchr(string, *sep)) != NULL) {
-        lua_pushlstring(L, string, token - string);
+        lua_pushlstring(L, string, (size_t)(token - string));
         lua_rawseti(L, -2, i++);
         string = token + 1;
     }
@@ -77,12 +79,6 @@ ffi_replicaset_set_master(struct replicaset *rs, struct server *server)
     rs->master = server;
 }
 
-struct server*
-ffi_replicaset_get_master(struct replicaset *rs)
-{
-    return rs->master;
-}
-
 void
 ffi_replicaset_add_tagged_server(struct replicaset *rs, int tag_idx, struct server *server)
 {
@@ -112,10 +108,7 @@ ffi_replicaset_delete(struct replicaset *rs)
 }
 
 struct server*
-ffi_server_new(struct server_pool *pool, 
-                        const char *name,
-                        const char *id, 
-                        const char *ip, int port)
+ffi_server_new(struct server_pool *pool, char *name, char *id, char *ip, int port)
 {
     struct server *s;
     struct string address;
@@ -132,13 +125,13 @@ ffi_server_new(struct server_pool *pool,
     s->weight = 1;
     /* set name */
     string_init(&s->name);
-    string_copy(&s->name, id, strlen(id));
+    string_copy(&s->name, (uint8_t*)id, (uint32_t)nc_strlen(id));
     string_init(&s->pname);
-    string_copy(&s->pname, name, strlen(name));
+    string_copy(&s->pname, (uint8_t*)name, (uint32_t)nc_strlen(name));
     string_init(&address);
-    string_copy(&address, ip, strlen(ip));
+    string_copy(&address, (uint8_t*)ip, (uint32_t)nc_strlen(ip));
     /* set port */
-    s->port = port;
+    s->port = (uint16_t)port;
 
     status = nc_resolve(&address, s->port, &s->sockinfo);
     if (status != NC_OK) {
@@ -158,7 +151,7 @@ ffi_server_new(struct server_pool *pool,
     return s;
 }
 
-int
+rstatus_t
 ffi_server_connect(struct server *server) {
     struct server_pool *pool;
     struct conn *conn;
@@ -167,7 +160,7 @@ ffi_server_connect(struct server *server) {
     pool = server->owner;
     conn = server_conn(server);
     if (conn == NULL) {
-        return 0;
+        return NC_ERROR;
     }
 
     status = server_connect(pool->ctx, server, conn);
@@ -175,12 +168,12 @@ ffi_server_connect(struct server *server) {
         log_warn("script: connect to server '%.*s' failed, ignored: %s",
                  server->pname.len, server->pname.data, strerror(errno));
         server_close(pool->ctx, conn);
-        return 0;
+        return NC_ERROR;
     }
-    return 1;
+    return NC_OK;
 }
 
-int
+rstatus_t
 ffi_server_disconnect(struct server *server)
 {
     struct server_pool *pool;
@@ -196,10 +189,10 @@ ffi_server_disconnect(struct server *server)
         conn->close(pool->ctx, conn);
     }
 
-    return 1;
+    return NC_OK;
 }
 
-int
+void
 ffi_slots_set_replicaset(struct server_pool *pool, 
                          struct replicaset *rs, 
                          int left, int right)
@@ -211,8 +204,6 @@ ffi_slots_set_replicaset(struct server_pool *pool,
     for (i = left; i <= right; i++) {
         pool->slots[i] = rs;
     }
-
-    return 1;
 }
 
 struct string
@@ -220,20 +211,20 @@ ffi_pool_get_zone(struct server_pool *pool) {
     return pool->zone;
 }
 
-void
+rstatus_t
 ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server)
 {
-    assoc_set(pool->server_table, name, strlen(name), server);
+    return assoc_set(pool->server_table, name, strlen(name), server);
 }
 
 void
 ffi_server_table_delete(struct server_pool *pool, const char *name)
 {
-    assoc_delete(pool->server_table, name, strlen(name));
+    return assoc_delete(pool->server_table, name, strlen(name));
 }
 
 /* init */
-int 
+rstatus_t
 script_init(struct server_pool *pool)
 {
     lua_State *L;
@@ -243,7 +234,7 @@ script_init(struct server_pool *pool)
     luaL_openlibs(L);                           /* Load Lua libraries */
     if (luaL_loadfile(L, "lua/redis.lua")) {
         log_debug(LOG_VERB, "init lua script failed - %s", lua_tostring(L, -1));
-        return 1;
+        return NC_ERROR;
     }
 
     lua_getglobal(L, "string");
@@ -257,41 +248,42 @@ script_init(struct server_pool *pool)
         log_error("call lua script failed - %s", lua_tostring(L, -1));
     }
 
-    return 0;
+    return NC_OK;
 }
 
-int 
-script_call(struct server_pool *pool, const char *body, int len, const char *func_name)
+rstatus_t
+script_call(struct server_pool *pool, const uint8_t *body, int len, const char *func_name)
 {
     lua_State *L = pool->L;
 
     log_debug(LOG_VERB, "script: update redis cluster nodes");
 
     lua_getglobal(L, func_name);
-    lua_pushlstring(L, body, (size_t)len);
+    lua_pushlstring(L, (const char*)body, (size_t)len);
 
     /* Call update function */
     if (lua_pcall(L, 1, 0, 0) != 0) {
         log_debug(LOG_VERB, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
+        return NC_ERROR;
     }
 
-    if (1) {
-        int i = 0;
-        struct replicaset *last_rs = NULL;
-        for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
-            struct replicaset *rs = pool->slots[i];
-            if (last_rs != rs) {
-                last_rs = rs;
-                log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d,%d]",
-                          i, rs->master->pname.len, rs->master->pname.data,
-                          array_n(&rs->tagged_servers[0]),
-                          array_n(&rs->tagged_servers[1]),
-                          array_n(&rs->tagged_servers[2]),
-                          array_n(&rs->tagged_servers[3]),
-                          array_n(&rs->tagged_servers[4]));
-            }
+#if 1
+    int i = 0;
+    struct replicaset *last_rs = NULL;
+    for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
+        struct replicaset *rs = pool->slots[i];
+        if (last_rs != rs) {
+            last_rs = rs;
+            log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d,%d]",
+                      i, rs->master->pname.len, rs->master->pname.data,
+                      array_n(&rs->tagged_servers[0]),
+                      array_n(&rs->tagged_servers[1]),
+                      array_n(&rs->tagged_servers[2]),
+                      array_n(&rs->tagged_servers[3]),
+                      array_n(&rs->tagged_servers[4]));
         }
     }
+#endif
 
-    return 0;
+    return NC_OK;
 }

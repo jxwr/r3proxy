@@ -84,9 +84,6 @@ function update_cluster_nodes(msg)
 
    -- bind replica sets to slots
    pool:bind_slots()
-
-   -- 0 is success
-   return 0
 end
 
 print ("Script Init Done")

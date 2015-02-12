@@ -8,11 +8,12 @@ ffi.cdef[[
       struct server;
       struct server_pool;
       struct string { uint32_t len; uint8_t  *data; };
+      typedef int rstatus_t;
 
       struct string ffi_pool_get_zone(struct server_pool *pool);
 
-      bool ffi_server_connect(struct server *server);
-      bool ffi_server_disconnect(struct server *server);
+      rstatus_t ffi_server_connect(struct server *server);
+      rstatus_t ffi_server_disconnect(struct server *server);
       struct server* ffi_server_new(
          struct server_pool *pool, const char *name, const char *id, const char *ip, int port);
 ]]

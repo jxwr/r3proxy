@@ -1522,7 +1522,7 @@ memcache_reply(struct msg *r)
 
 struct conn *
 memcache_routing(struct context *ctx, struct server_pool *pool, 
-                 struct msg *msg, const uint8_t *key, uint32_t keylen)
+                 struct msg *msg, uint8_t *key, uint32_t keylen)
 {
     struct conn *s_conn;
 

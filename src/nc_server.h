@@ -159,13 +159,13 @@ void server_connected(struct context *ctx, struct conn *conn);
 void server_ok(struct context *ctx, struct conn *conn);
 
 uint32_t server_pool_idx(struct server_pool *pool, uint8_t *key, uint32_t keylen);
-struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, const uint8_t *key, uint32_t keylen);
+struct conn *server_pool_conn(struct context *ctx, struct server_pool *pool, uint8_t *key, uint32_t keylen);
 rstatus_t server_pool_run(struct server_pool *pool);
 rstatus_t server_pool_preconnect(struct context *ctx);
 void server_pool_disconnect(struct context *ctx);
 rstatus_t server_pool_init(struct array *server_pool, struct array *conf_pool, struct context *ctx);
 void server_pool_deinit(struct array *server_pool);
-uint32_t server_pool_hash(struct server_pool *pool, const uint8_t *key, uint32_t keylen);
+uint32_t server_pool_hash(struct server_pool *pool, uint8_t *key, uint32_t keylen);
 void server_pool_tick(struct context *ctx);
 
 #endif

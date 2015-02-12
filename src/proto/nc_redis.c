@@ -16,6 +16,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
 
@@ -1297,7 +1298,7 @@ redis_parse_req(struct msg *r)
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg < 2) {
-                        //                        goto error;
+                        goto error;
                     }
                     state = SW_ARG2_LEN;
                 } else if (redis_argkvx(r)) {
@@ -1397,6 +1398,9 @@ redis_parse_req(struct msg *r)
                         goto error;
                     }
                 }
+                if (nkey == 0) {		
+                    goto error;		
+                }
 
                 r->token = NULL;
             }
@@ -1425,9 +1429,7 @@ redis_parse_req(struct msg *r)
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
                     if (r->rnarg < 1) {
-                        /* internal control command */
-                        r->noforward = 1;
-                        goto done;
+                        goto error;
                     }
                     state = SW_KEY_LEN;
                 } else {
@@ -2519,10 +2521,7 @@ redis_reply(struct msg *r)
     switch (r->type) {
     case MSG_REQ_REDIS_PING:
         return msg_append(response, (uint8_t *)REPL_PONG, nc_strlen(REPL_PONG));
-    case MSG_REQ_REDIS_EVAL: {
-        char *reply = "+OK\r\n";
-        return msg_append(response, (uint8_t *)reply, nc_strlen(reply));
-    }
+
     default:
         NOT_REACHED();
         return NC_ERROR;
@@ -2780,22 +2779,20 @@ redis_swallow_msg(struct conn *conn, struct msg *pmsg, struct msg *msg)
 
 struct conn *
 redis_routing(struct context *ctx, struct server_pool *pool, 
-              struct msg *msg, const uint8_t *key, uint32_t keylen)
+              struct msg *msg, uint8_t *key, uint32_t keylen)
 {
     struct conn *s_conn;
 
-    if (pool->redis) {
-        int idx;
+    if (pool->rediscluster) {
+        uint32_t i, idx;
         rstatus_t status;
-        struct server *server;
+        struct server *server = NULL;
 
         idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
         
         if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
             server = pool->slots[idx]->master;
         } else {
-            int i;
-
             for (i = 0; i < NC_MAXTAGNUM; i++) {
                 uint32_t n;
                 struct array *slaves;
@@ -2810,10 +2807,11 @@ redis_routing(struct context *ctx, struct server_pool *pool,
             }
         }
         if (server == NULL) {
+            log_debug(LOG_WARN, "no readable server found in slot %d", idx);
             return NULL;
         }
 
-        log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' on slot %d", 
+        log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' in slot %d",
                   keylen, key, server->pname.len, server->pname.data, idx);
 
         /* pick a connection to the given server */
@@ -2835,7 +2833,7 @@ redis_routing(struct context *ctx, struct server_pool *pool,
 }
 
 static rstatus_t
-build_custom_message(struct msg *r, const uint8_t *msgbody, size_t msglen, int swallow)
+build_custom_message(struct msg *r, uint8_t *msgbody, size_t msglen, int swallow)
 {
     struct mbuf *mbuf;
     size_t msize;
@@ -2869,128 +2867,103 @@ redis_pre_req_forward(struct context *ctx, struct conn *conn, struct msg *msg)
 rstatus_t
 redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg) 
 {
+    struct server *server;
+    struct server_pool *pool;
     struct msg *pmsg;
-    struct msg *ask_msg;
     struct conn *c_conn;
-    int64_t t_start, t_end;
+
+    server = s_conn->owner;
+    pool = server->owner;
 
     pmsg = msg->peer;
     c_conn = pmsg->owner;
 
+    /* handle '-ASK <slotnum> <address>' and '-MOVED <slotnum> <address>' */
     if (msg->type == MSG_RSP_REDIS_ASK || msg->type == MSG_RSP_REDIS_MOVED) {
         rstatus_t status;
-        struct server *server = s_conn->owner;
-        struct server_pool *pool = server->owner;
         struct mbuf *mbuf, *nbuf;            /* current and next mbuf */
+        char *addr;
+        size_t len;
 
         ASSERT(!s_conn->client && !s_conn->proxy);
 
-        /* need reset mbufs of the sent msg */
+        /* reset pmsg */
         for (mbuf = STAILQ_FIRST(&pmsg->mhdr); mbuf != NULL; mbuf = nbuf) {
             nbuf = STAILQ_NEXT(mbuf, next);
             mbuf->pos = mbuf->start;
         }
-        /* reset pmsg */
         pmsg->peer = NULL;
 
-        /* redirect to the master of the target slot */
-        server = assoc_find(pool->server_table, 
-                            msg->val_start, msg->val_end - msg->val_start);
+        /* fetch server conn */
+        len = (size_t)(msg->val_end - msg->val_start);
+        addr = (char*)msg->val_start;
+
+        server = assoc_find(pool->server_table, addr, len);
+        if (server == NULL) goto ferror;
+
         s_conn = server_conn(server);
+        if (s_conn == NULL) goto ferror;
 
-        /* Send ASKING */
-        ask_msg = msg_get(NULL, true, 1);
-        if (ask_msg == NULL) {
-            return NC_ERROR;
-        }
+        /* need send ASKING firstly? */
+        if (msg->type == MSG_RSP_REDIS_ASK) {
+            struct msg *ask_msg;
 
-        status = build_custom_message(ask_msg, REDIS_CLUSTER_ASKING_MESSAGE, 
-                                      sizeof(REDIS_CLUSTER_ASKING_MESSAGE)-1, 1);
-        if (status != NC_OK) {
-            log_debug(LOG_VERB, "server: failed to build probe message");
-            msg_put(ask_msg);
-            return NC_ERROR;
-        }
+            ask_msg = msg_get(NULL, true, 1);
+            if (ask_msg == NULL) {
+                goto ferror;
+            }
 
-        status = req_enqueue(pool->ctx, s_conn, NULL, ask_msg);
-        if (status != NC_OK) {
-            req_put(ask_msg);
-            return NC_ERROR;
-        }
-
-        log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d to slot %d %d",
-                  pmsg->id, pmsg->mlen, s_conn->sd, msg->integer,
-                  server->port);
-        if (s_conn != NULL) {
-            status = req_enqueue(ctx, s_conn, c_conn, pmsg);
+            status = build_custom_message(ask_msg, (uint8_t*)REDIS_CLUSTER_ASKING_MESSAGE, 
+                                          sizeof(REDIS_CLUSTER_ASKING_MESSAGE)-1, 1);
             if (status != NC_OK) {
-                log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d failed",
-                          pmsg->id, pmsg->mlen, s_conn->sd);
-                msg_put(pmsg);
+                msg_put(ask_msg);
+                goto ferror;
+            }
+
+            status = req_enqueue(pool->ctx, s_conn, NULL, ask_msg);
+            if (status != NC_OK) {
+                goto ferror;
+            }
+        }
+
+        /* resend the msg to the new server */
+        status = req_enqueue(ctx, s_conn, c_conn, pmsg);
+        if (status != NC_OK) {
+            log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d failed",
+                      pmsg->id, pmsg->mlen, s_conn->sd);
+            goto ferror;
+        }
+
+        /* need update slot? */
+        if (msg->type == MSG_RSP_REDIS_MOVED) {
+            uint8_t *key;
+            uint32_t keylen, idx;
+            struct keypos *kpos;
+
+            ASSERT(array_n(pmsg->keys) > 0);
+            kpos = array_get(pmsg->keys, 0);
+            key = kpos->start;
+            keylen = (uint32_t)(kpos->end - kpos->start);
+            idx = pool->key_hash((char*)key, keylen) % REDIS_CLUSTER_SLOTS;
+            if (msg->integer != idx) {
+                pool->slots[idx] = pool->slots[msg->integer];
             }
         }
 
         msg_put(msg);
         return NC_ERROR;
-    }
 
-    if (msg->type == MSG_RSP_REDIS_MOVED) {
-        rstatus_t status;
-        struct server *server = s_conn->owner;
-        struct server_pool *pool = server->owner;
-        struct mbuf *mbuf, *nbuf;            /* current and next mbuf */
-        int idx;
-        uint8_t *key;
-        uint32_t keylen;
-        struct keypos *kpos;
-
-        ASSERT(!s_conn->client && !s_conn->proxy);
-
-        /* need reset mbufs of the sent msg */
-        for (mbuf = STAILQ_FIRST(&pmsg->mhdr); mbuf != NULL; mbuf = nbuf) {
-            nbuf = STAILQ_NEXT(mbuf, next);
-            mbuf->pos = mbuf->start;
-        }
-        /* reset pmsg */
-        pmsg->peer = NULL;
-
-        /* redirect to the master of the target slot */
-        server = pool->slots[msg->integer]->master;
-        if (server == NULL) {
-            msg_put(pmsg);
-            return NC_ERROR;
-        }
-        s_conn = server_conn(server);
-
-        log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d to slot %d %d",
-                  pmsg->id, pmsg->mlen, s_conn->sd, msg->integer,
-                  server->port);
-        if (s_conn != NULL) {
-            status = req_enqueue(ctx, s_conn, c_conn, pmsg);
-            if (status != NC_OK) {
-                log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d failed",
-                          pmsg->id, pmsg->mlen, s_conn->sd);
-                msg_put(pmsg);
-            }
-        }
-
-        ASSERT(array_n(msg->keys) > 0);
-        kpos = array_get(msg->keys, 0);
-        key = kpos->start;
-        keylen = (uint32_t)(kpos->end - kpos->start);
-        idx = pool->key_hash(key, keylen) % REDIS_CLUSTER_SLOTS;
-        if (msg->integer != idx) {
-            pool->slots[idx] = pool->slots[msg->integer];
-        }
-
+ferror:
+        log_debug(LOG_WARN, "server: failed to redirect message");
+        
+        msg_put(pmsg);
         msg_put(msg);
         return NC_ERROR;
     }
 
     /* probe msg */
     if (c_conn == NULL) {
-        struct server *server;
-        struct server_pool *pool;
+        int64_t t_start, t_end;
         struct mbuf *mbuf;
 
         server = s_conn->owner;
@@ -3033,9 +3006,10 @@ redis_pool_tick(struct server_pool *pool)
             return;
         }
 
-        status = build_custom_message(msg, REDIS_CLUSTER_NODES_MESSAGE, sizeof(REDIS_CLUSTER_NODES_MESSAGE)-1, 0);
+        status = build_custom_message(msg, (uint8_t*)REDIS_CLUSTER_NODES_MESSAGE,
+                                      sizeof(REDIS_CLUSTER_NODES_MESSAGE)-1, 0);
         if (status != NC_OK) {
-            log_debug(LOG_VERB, "server: failed to build probe message");
+            log_debug(LOG_WARN, "server: failed to build probe message");
             msg_put(msg);
             return;
         }
@@ -3049,7 +3023,8 @@ redis_pool_tick(struct server_pool *pool)
 
         conn = server_conn(server);
         if (conn == NULL) {
-            log_debug(LOG_VERB, "server: failed to fetch conn");
+            log_debug(LOG_WARN, "server: failed to fetch conn");
+            msg_put(msg);
             return;
         }
 
@@ -3058,12 +3033,13 @@ redis_pool_tick(struct server_pool *pool)
             log_warn("connect to server '%.*s' failed, ignored: %s",
                      server->pname.len, server->pname.data, strerror(errno));
             server_close(pool->ctx, conn);
+            msg_put(msg);
             return;
         }
 
         status = req_enqueue(pool->ctx, conn, NULL, msg);
         if (status != NC_OK) {
-            req_put(msg);
+            msg_put(msg);
             return;
         }
     }

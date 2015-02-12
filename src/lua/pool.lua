@@ -5,9 +5,10 @@ local C = ffi.C
 
 ffi.cdef[[
       struct server;
+      typedef int rstatus_t;
 
+      rstatus_t ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server);
       void ffi_server_table_delete(struct server_pool *pool, const char *name);
-      void ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server);
 ]]
 
 local server = require("server")

@@ -38,6 +38,7 @@ nutcracker
 
 # extracted yaml
 !/contrib/yaml-0.1.4.tar.gz
+/contrib/LuaJIT-2.0.3/
 
 # Autotools
 .deps

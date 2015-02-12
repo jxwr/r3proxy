@@ -9,8 +9,8 @@ ffi.cdef[[
       int ffi_slots_set_replicaset(struct server_pool *pool, struct replicaset *rs, int left, int right);
 
       struct replicaset* ffi_replicaset_new();
-      struct replicaset* ffi_replicaset_deinit(struct replicaset *rs);
-      struct replicaset* ffi_replicaset_delete(struct replicaset *rs);
+      void ffi_replicaset_deinit(struct replicaset *rs);
+      void ffi_replicaset_delete(struct replicaset *rs);
       void ffi_replicaset_set_master(struct replicaset *rs, struct server *server);
       void ffi_replicaset_add_tagged_server(struct replicaset *rs, int tag_idx, struct server *server);
 ]]
