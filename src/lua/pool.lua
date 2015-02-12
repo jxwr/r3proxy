@@ -103,8 +103,8 @@ function _M.build_replica_sets(self)
    for id,s in pairs(self.server_map) do
       if s:is_master() then
          local rs = self:fetch_replica_set()
-         rs:set_master(s)
-         rs:add_tagged_server(s)
+         rs:set_master(s)        -- for write
+         rs:add_tagged_server(s) -- for read
          table.insert(tmp_rss, rs)
       end
    end

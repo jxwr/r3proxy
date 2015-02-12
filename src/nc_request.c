@@ -608,7 +608,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
 
     status = req_enqueue(ctx, s_conn, c_conn, msg);
     if (status != NC_OK) {
-        return NC_ERROR;
+        return;
     }
 
     req_forward_stats(ctx, s_conn->owner, msg);
@@ -616,6 +616,7 @@ req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg)
     log_debug(LOG_VERB, "forward from c %d to s %d req %"PRIu64" len %"PRIu32
               " type %d with key '%.*s'", c_conn->sd, s_conn->sd, msg->id,
               msg->mlen, msg->type, keylen, key);
+    return;
 }
 
 void

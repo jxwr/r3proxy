@@ -2806,11 +2806,11 @@ redis_routing(struct context *ctx, struct server_pool *pool,
                 }
                 n = random() % array_n(slaves);
                 server = *(struct server**)array_get(slaves, n);
-                if (server == NULL) {
-                    return NULL;
-                }
                 break;
             }
+        }
+        if (server == NULL) {
+            return NULL;
         }
 
         log_debug(LOG_VERB, "key '%.*s' maps to server '%.*s' on slot %d", 
@@ -2835,7 +2835,7 @@ redis_routing(struct context *ctx, struct server_pool *pool,
 }
 
 static rstatus_t
-build_custom_message(struct msg *r, const char *msgbody, size_t msglen, int swallow)
+build_custom_message(struct msg *r, const uint8_t *msgbody, size_t msglen, int swallow)
 {
     struct mbuf *mbuf;
     size_t msize;
@@ -2853,7 +2853,7 @@ build_custom_message(struct msg *r, const char *msgbody, size_t msglen, int swal
     
     ASSERT(msize >= msglen);
     
-    mbuf_copy(mbuf, (uint8_t *)msgbody, msglen);
+    mbuf_copy(mbuf, msgbody, msglen);
     r->mlen += (uint32_t)msglen;
     r->swallow = swallow;
     
@@ -2928,6 +2928,59 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
                           pmsg->id, pmsg->mlen, s_conn->sd);
                 msg_put(pmsg);
             }
+        }
+
+        msg_put(msg);
+        return NC_ERROR;
+    }
+
+    if (msg->type == MSG_RSP_REDIS_MOVED) {
+        rstatus_t status;
+        struct server *server = s_conn->owner;
+        struct server_pool *pool = server->owner;
+        struct mbuf *mbuf, *nbuf;            /* current and next mbuf */
+        int idx;
+        uint8_t *key;
+        uint32_t keylen;
+        struct keypos *kpos;
+
+        ASSERT(!s_conn->client && !s_conn->proxy);
+
+        /* need reset mbufs of the sent msg */
+        for (mbuf = STAILQ_FIRST(&pmsg->mhdr); mbuf != NULL; mbuf = nbuf) {
+            nbuf = STAILQ_NEXT(mbuf, next);
+            mbuf->pos = mbuf->start;
+        }
+        /* reset pmsg */
+        pmsg->peer = NULL;
+
+        /* redirect to the master of the target slot */
+        server = pool->slots[msg->integer]->master;
+        if (server == NULL) {
+            msg_put(pmsg);
+            return NC_ERROR;
+        }
+        s_conn = server_conn(server);
+
+        log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d to slot %d %d",
+                  pmsg->id, pmsg->mlen, s_conn->sd, msg->integer,
+                  server->port);
+        if (s_conn != NULL) {
+            status = req_enqueue(ctx, s_conn, c_conn, pmsg);
+            if (status != NC_OK) {
+                log_debug(LOG_WARN, "redirect req %"PRIu64" len %"PRIu32" on s %d failed",
+                          pmsg->id, pmsg->mlen, s_conn->sd);
+                msg_put(pmsg);
+            }
+        }
+
+        ASSERT(array_n(msg->keys) > 0);
+        kpos = array_get(msg->keys, 0);
+        key = kpos->start;
+        keylen = (uint32_t)(kpos->end - kpos->start);
+        idx = pool->key_hash(key, keylen) % REDIS_CLUSTER_SLOTS;
+        if (msg->integer != idx) {
+            pool->slots[idx] = pool->slots[msg->integer];
         }
 
         msg_put(msg);
