@@ -199,7 +199,7 @@ ffi_slots_set_replicaset(struct server_pool *pool,
 {
     int i;
 
-    log_debug(LOG_VERB, "script: update slots %d-%d", left, right);
+    log_debug(LOG_VVERB, "script: update slots %d-%d", left, right);
 
     for (i = left; i <= right; i++) {
         pool->slots[i] = rs;

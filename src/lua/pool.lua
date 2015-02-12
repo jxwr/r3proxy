@@ -93,7 +93,9 @@ function _M.set_servers(self, configs)
    for _, s in pairs(self.server_map) do
       local name = string.format("%s:%d",s.ip,s.port)
       s:connect()
-      C.ffi_server_table_set(__pool, name, s.raw)
+      if C.ffi_server_table_set(__pool, name, s.raw) < 0 then
+         error("set server table failed")
+      end
    end
 end
 

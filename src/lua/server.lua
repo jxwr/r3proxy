@@ -40,35 +40,20 @@ for i, item in ipairs(read_preference) do
    end
 end
 
-for k,v in pairs(_M.zone_index) do
-   print(k, v)
-end
-
 function _M.new(self, config)
-   local s = {
-      id = config.id,
-      readable = config.readable,
-      writable = config.writable,
-      ip = config.ip,
-      port = config.port,
-      role = config.role,
-      master_id = config.master_id,
-      region = config.region,
-      zone = config.zone,
-      room = config.room,
-      ranges = config.ranges,
-   }
+   local s = setmetatable({}, mt)
+   s:update_config(config)
    s.raw = C.ffi_server_new(__pool, config.addr, s.id, s.ip, s.port)
-
-   if s.role == "master" and _M.zone_index["$master"] then
-      s.tag_idx = _M.zone_index["$master"]
-   else
-      s.tag_idx = _M.zone_index[s.zone] or -1
+   if s.raw == nil then
+      error("create server object failed.")
    end
-   return setmetatable(s, mt)
+   return s
 end
 
 function _M.update_config(self, config)
+   self.id = config.id
+   self.ip = config.ip
+   self.port = config.port
    self.readable = config.readable
    self.writable = config.writable
    self.role = config.role
