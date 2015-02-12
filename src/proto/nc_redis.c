@@ -2980,7 +2980,7 @@ redis_pool_tick(struct server_pool *pool)
             return;
         }
 
-        status = build_custom_message(msg, REDIS_CLUSTER_NODES_MESSAGE, sizeof(REDIS_CLUSTER_NODES_MESSAGE)-1,0);
+        status = build_custom_message(msg, REDIS_CLUSTER_NODES_MESSAGE, sizeof(REDIS_CLUSTER_NODES_MESSAGE)-1, 0);
         if (status != NC_OK) {
             log_debug(LOG_VERB, "server: failed to build probe message");
             msg_put(msg);

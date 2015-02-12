@@ -102,21 +102,9 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, server_failure_limit) },
 
-    { string("region"),
-      conf_set_string,
-      offsetof(struct conf_pool, region) },
-
     { string("zone"),
       conf_set_string,
       offsetof(struct conf_pool, zone) },
-
-    { string("room"),
-      conf_set_string,
-      offsetof(struct conf_pool, room) },
-
-    { string("failover_zones"),
-      conf_set_string,
-      offsetof(struct conf_pool, failover_zones) },
 
     { string("servers"),
       conf_add_server,
@@ -312,11 +300,7 @@ conf_pool_each_transform(void *elem, void *data)
     sp->server_failure_limit = (uint32_t)cp->server_failure_limit;
     sp->auto_eject_hosts = cp->auto_eject_hosts ? 1 : 0;
     sp->preconnect = cp->preconnect ? 1 : 0;
-
-    sp->region = cp->region;
     sp->zone = cp->zone;
-    sp->room = cp->room;
-    sp->failover_zones = cp->failover_zones;
 
     for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
         sp->slots[i] = NULL;

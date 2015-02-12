@@ -216,24 +216,8 @@ ffi_slots_set_replicaset(struct server_pool *pool,
 }
 
 struct string
-ffi_pool_get_region(struct server_pool *pool)
-{
-    return pool->region;
-}
-
-struct string
 ffi_pool_get_zone(struct server_pool *pool) {
     return pool->zone;
-}
-
-struct string
-ffi_pool_get_room(struct server_pool *pool) {
-    return pool->room;
-}
-
-struct string
-ffi_pool_get_failover_zones(struct server_pool *pool) {
-    return pool->failover_zones;
 }
 
 void
@@ -249,7 +233,8 @@ ffi_server_table_delete(struct server_pool *pool, const char *name)
 }
 
 /* init */
-int script_init(struct server_pool *pool)
+int 
+script_init(struct server_pool *pool)
 {
     lua_State *L;
 
@@ -275,7 +260,8 @@ int script_init(struct server_pool *pool)
     return 0;
 }
 
-int script_call(struct server_pool *pool, const char *body, int len, const char *func_name)
+int 
+script_call(struct server_pool *pool, const char *body, int len, const char *func_name)
 {
     lua_State *L = pool->L;
 
@@ -296,12 +282,13 @@ int script_call(struct server_pool *pool, const char *body, int len, const char 
             struct replicaset *rs = pool->slots[i];
             if (last_rs != rs) {
                 last_rs = rs;
-                log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d]",
+                log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d,%d]",
                           i, rs->master->pname.len, rs->master->pname.data,
                           array_n(&rs->tagged_servers[0]),
                           array_n(&rs->tagged_servers[1]),
                           array_n(&rs->tagged_servers[2]),
-                          array_n(&rs->tagged_servers[3]));
+                          array_n(&rs->tagged_servers[3]),
+                          array_n(&rs->tagged_servers[4]));
             }
         }
     }

@@ -140,12 +140,8 @@ struct server_pool {
     unsigned           need_update_slots:1;  /* need_update_slots(rediscluster) */
     pool_tick_t        pool_tick;            /* ticker */
     int64_t            ticks_left;
-    struct string      region;               /* region */
     struct string      zone;                 /* avaliablity zone */
-    struct string      room;                 /* machine room */
-    struct string      failover_zones;       /* failover avaliablity zones */
-
-    struct hash_table  *server_table;
+    struct hash_table  *server_table;        /* address(ip:port) to server map */
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
     lua_State *L;
 };

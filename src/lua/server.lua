@@ -1,3 +1,6 @@
+package.path = package.path .. ";lua/?.lua;../?.lua"
+
+local idcmap = require("idcmap")
 local ffi = require("ffi")
 local C = ffi.C
 
@@ -6,32 +9,38 @@ ffi.cdef[[
       struct server_pool;
       struct string { uint32_t len; uint8_t  *data; };
 
+      struct string ffi_pool_get_zone(struct server_pool *pool);
+
       bool ffi_server_connect(struct server *server);
       bool ffi_server_disconnect(struct server *server);
       struct server* ffi_server_new(
          struct server_pool *pool, const char *name, const char *id, const char *ip, int port);
-
-
-      struct string ffi_pool_get_region(struct server_pool *pool);
-      struct string ffi_pool_get_zone(struct server_pool *pool);
-      struct string ffi_pool_get_room(struct server_pool *pool);
-      struct string ffi_pool_get_failover_zones(struct server_pool *pool);
 ]]
 
 local zone = C.ffi_pool_get_zone(__pool)
-local failover_zones = C.ffi_pool_get_failover_zones(__pool)
 
 local _M = {
    local_zone = ffi.string(zone.data, zone.len),
-   failover_zones = ffi.string(failover_zones.data, failover_zones.len):split(","),
    zone_index = {},
 }
 local mt = { __index = _M }
 
 -- Initialize zone index
-_M.zone_index[_M.local_zone] = 0
-for i,zone in ipairs(_M.failover_zones) do
-   _M.zone_index[zone] = i
+read_preference = idcmap[_M.local_zone]
+for i, item in ipairs(read_preference) do
+   if item == "$master" then
+      _M.zone_index["$master"] = i-1
+   elseif type(item) == "table" then
+      for j,z in ipairs(item) do
+         _M.zone_index[z] = i-1
+      end
+   elseif type(item) == "string" then
+      _M.zone_index[item] = i-1
+   end
+end
+
+for k,v in pairs(_M.zone_index) do
+   print(k, v)
 end
 
 function _M.new(self, config)
@@ -49,7 +58,12 @@ function _M.new(self, config)
       ranges = config.ranges,
    }
    s.raw = C.ffi_server_new(__pool, config.addr, s.id, s.ip, s.port)
-   s.tag_idx = _M.zone_index[s.zone] or -1
+
+   if s.role == "master" and _M.zone_index["$master"] then
+      s.tag_idx = _M.zone_index["$master"]
+   else
+      s.tag_idx = _M.zone_index[s.zone] or -1
+   end
    return setmetatable(s, mt)
 end
 
@@ -62,7 +76,12 @@ function _M.update_config(self, config)
    self.zone = config.zone
    self.room = config.room
    self.ranges = config.ranges
-   self.tag_idx = _M.zone_index[self.zone] or -1
+
+   if self.role == "master" and _M.zone_index["$master"] then
+      self.tag_idx = _M.zone_index["$master"]
+   else
+      self.tag_idx = _M.zone_index[self.zone] or -1
+   end
 end
 
 function _M.connect(self)

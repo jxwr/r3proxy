@@ -90,5 +90,3 @@ function update_cluster_nodes(msg)
 end
 
 print ("Script Init Done")
-
-
