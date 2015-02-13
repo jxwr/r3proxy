@@ -111,18 +111,17 @@ function _M.set_servers(self, configs)
    table.sort(tmp_server_names)
    if #tmp_server_names ~= #self.last_server_names then
       server_changed = true
-   end
-   if table.concat(tmp_server_names) ~= table.concat(self.last_server_names) then
+   elseif table.concat(tmp_server_names) ~= table.concat(self.last_server_names) then
       server_changed = true
    end
 
    if server_changed then
+      print("server list changed, will update stats an server_table")
       -- Reset stats
       C.ffi_pool_clear_servers(__pool)
 
       for _, s in pairs(self.server_map) do
          -- Set server addr->server map
-         print(s.addr)
          if C.ffi_server_table_set(__pool, s.addr, s.raw) < 0 then
             error("set server table failed")
          end
