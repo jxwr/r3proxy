@@ -1,6 +1,3 @@
-
-- lua c/api错误处理
-- nodesinfo长度时该如何处理
 - 在迁移时，slave应该不可读，需要先封，但是读写是针对整个server，如果全部封slave的读，会造成整个迁移过程(可能几小时)中，读都走主，所以需要做到可以按分片进行读写。如果需要proxy知道importing和migrating的状态，要么controller提供，要么redis集群提供，两者都比较罗嗦。简单的办法是，在迁移前，对slave也设置migrating状态（需要修改redis），这样在访问该slave的迁移slot时，会直接重定向到目标master。
 - 迁移状态只有该server自己才知道，向其他节点发送cluster nodes时不会返回
 
@@ -38,3 +35,7 @@ primary = {
     hz01 = {$master},
 }
 ```
+- 主要修改：
+  1.处理ASK和MOVED。
+  2.根据'cluster nodes extra'返回的信息，处理数据分布，创建server，
+  3.根据idcmap设置server读优先级
