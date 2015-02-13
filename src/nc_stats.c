@@ -202,7 +202,7 @@ stats_server_map(struct array *stats_server, struct array *server)
     }
 
     for (i = 0; i < nserver; i++) {
-        struct server *s = array_get(server, i);
+        struct server *s = *(struct server**)array_get(server, i);
         struct stats_server *sts = array_push(stats_server);
 
         status = stats_server_init(sts, s);
@@ -965,6 +965,50 @@ stats_create(uint16_t stats_port, char *stats_ip, int stats_interval,
 error:
     stats_destroy(st);
     return NULL;
+}
+
+rstatus_t
+stats_reset(struct stats *st, struct array *server_pool)
+{
+    rstatus_t status;
+
+    stats_stop_aggregator(st);
+    stats_pool_unmap(&st->sum);
+    stats_pool_unmap(&st->shadow);
+    stats_pool_unmap(&st->current);
+    stats_destroy_buf(st);
+
+    st->updated = 0;
+    st->aggregate = 0;
+
+    /* map server pool to current (a), shadow (b) and sum (c) */
+
+    status = stats_pool_map(&st->current, server_pool);
+    if (status != NC_OK) {
+        return NC_ERROR;
+    }
+
+    status = stats_pool_map(&st->shadow, server_pool);
+    if (status != NC_OK) {
+        return NC_ERROR;
+    }
+
+    status = stats_pool_map(&st->sum, server_pool);
+    if (status != NC_OK) {
+        return NC_ERROR;
+    }
+
+    status = stats_create_buf(st);
+    if (status != NC_OK) {
+        return NC_ERROR;
+    }
+
+    status = stats_start_aggregator(st);
+    if (status != NC_OK) {
+        return NC_ERROR;
+    }
+
+    return NC_OK;
 }
 
 void

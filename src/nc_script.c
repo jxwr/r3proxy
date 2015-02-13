@@ -10,6 +10,7 @@
 
 #include <nc_core.h>
 #include <nc_script.h>
+#include <nc_stats.h>
 
 static int 
 split(lua_State *L) 
@@ -125,7 +126,7 @@ ffi_server_new(struct server_pool *pool, char *name, char *id, char *ip, int por
     s->weight = 1;
     /* set name */
     string_init(&s->name);
-    string_copy(&s->name, (uint8_t*)id, (uint32_t)nc_strlen(id));
+    string_copy(&s->name, (uint8_t*)name, (uint32_t)nc_strlen(name));
     string_init(&s->pname);
     string_copy(&s->pname, (uint8_t*)name, (uint32_t)nc_strlen(name));
     string_init(&address);
@@ -211,6 +212,27 @@ ffi_pool_get_zone(struct server_pool *pool) {
     return pool->zone;
 }
 
+void
+ffi_pool_clear_servers(struct server_pool *pool) {
+    uint32_t n = array_n(&pool->server);
+    while (n--) {
+        array_pop(&pool->server);
+    }
+}
+
+void
+ffi_pool_add_server(struct server_pool *pool, struct server *server) {
+    uint32_t n;
+    struct server **s;
+
+    n = array_n(&pool->server);
+    s = array_push(&pool->server);
+    *s = server;
+    server->idx = n;
+
+    log_debug(LOG_VERB, "add server idx %d port %d", server->idx, server->port);
+}
+
 rstatus_t
 ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server)
 {
@@ -221,6 +243,14 @@ void
 ffi_server_table_delete(struct server_pool *pool, const char *name)
 {
     return assoc_delete(pool->server_table, name, strlen(name));
+}
+
+void
+ffi_stats_reset(struct server_pool *pool) {
+    struct context *ctx = pool->ctx;
+    struct stats *st = ctx->stats;
+
+    stats_reset(st, &ctx->pool);
 }
 
 /* init */

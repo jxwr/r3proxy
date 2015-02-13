@@ -7,8 +7,13 @@ ffi.cdef[[
       struct server;
       typedef int rstatus_t;
 
+      void ffi_pool_clear_servers(struct server_pool *pool);
+      void ffi_pool_add_server(struct server_pool *pool, struct server *server);
+
       rstatus_t ffi_server_table_set(struct server_pool *pool, const char *name, struct server *server);
       void ffi_server_table_delete(struct server_pool *pool, const char *name);
+
+      rstatus_t ffi_stats_reset(struct server_pool *pool);
 ]]
 
 local server = require("server")
@@ -18,7 +23,10 @@ local _M = {
    server_map = {},
    replica_sets = {},
 
-   -- struct server_pool 
+   -- for check change
+   last_server_names = {},
+
+   -- struct server_pool {}
    pool = __pool,
 
    -- resource pools
@@ -66,6 +74,7 @@ function _M.set_servers(self, configs)
    local configs = configs
    local tmp_server_map = {}
 
+   -- Update server status
    for _, config in ipairs(configs) do
       local id = config.id
 
@@ -82,21 +91,49 @@ function _M.set_servers(self, configs)
    -- Swap server_map
    self.server_map, tmp_server_map = tmp_server_map, self.server_map
 
+   -- Check server list changes
+
    -- Drop servers that we no longer use
    for id, s in pairs(tmp_server_map) do
-      local name = string.format("%s:%d",s.ip,s.port)
-      C.ffi_server_table_delete(__pool, name)
+      C.ffi_server_table_delete(__pool, s.addr)
       self:put_server(s)
    end
 
-   -- Set server addr->server map
+   local tmp_server_names = {}
+   local server_changed = false
+
    for _, s in pairs(self.server_map) do
-      local name = string.format("%s:%d",s.ip,s.port)
+      table.insert(tmp_server_names, s.addr)
+      -- Add a chance to reconnection
       s:connect()
-      if C.ffi_server_table_set(__pool, name, s.raw) < 0 then
-         error("set server table failed")
-      end
    end
+
+   table.sort(tmp_server_names)
+   if #tmp_server_names ~= #self.last_server_names then
+      server_changed = true
+   end
+   if table.concat(tmp_server_names) ~= table.concat(self.last_server_names) then
+      server_changed = true
+   end
+
+   if server_changed then
+      -- Reset stats
+      C.ffi_pool_clear_servers(__pool)
+
+      for _, s in pairs(self.server_map) do
+         -- Set server addr->server map
+         print(s.addr)
+         if C.ffi_server_table_set(__pool, s.addr, s.raw) < 0 then
+            error("set server table failed")
+         end
+
+         C.ffi_pool_add_server(__pool, s.raw)
+      end
+
+      C.ffi_stats_reset(__pool)
+   end
+
+   self.last_server_names = tmp_server_names
 end
 
 function _M.build_replica_sets(self)

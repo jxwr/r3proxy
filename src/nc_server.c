@@ -111,7 +111,7 @@ server_active(struct conn *conn)
 static rstatus_t
 server_each_set_owner(void *elem, void *data)
 {
-    struct server *s = elem;
+    struct server *s = *(struct server **)elem;
     struct server_pool *sp = data;
 
     s->owner = sp;
@@ -130,7 +130,7 @@ server_init(struct array *server, struct array *conf_server,
     ASSERT(nserver != 0);
     ASSERT(array_n(server) == 0);
 
-    status = array_init(server, nserver, sizeof(struct server));
+    status = array_init(server, nserver, sizeof(struct server*));
     if (status != NC_OK) {
         return status;
     }
@@ -162,9 +162,11 @@ server_deinit(struct array *server)
     uint32_t i, nserver;
 
     for (i = 0, nserver = array_n(server); i < nserver; i++) {
+        struct server **ps;
         struct server *s;
 
-        s = array_pop(server);
+        ps = array_pop(server);
+        s = *ps;
         ASSERT(TAILQ_EMPTY(&s->s_conn_q) && s->ns_conn_q == 0);
     }
     array_deinit(server);
@@ -206,11 +208,13 @@ static rstatus_t
 server_each_preconnect(void *elem, void *data)
 {
     rstatus_t status;
+    struct server **ps;
     struct server *server;
     struct server_pool *pool;
     struct conn *conn;
 
-    server = elem;
+    ps = elem;
+    server = *ps;
     pool = server->owner;
 
     conn = server_conn(server);
@@ -231,10 +235,12 @@ server_each_preconnect(void *elem, void *data)
 static rstatus_t
 server_each_disconnect(void *elem, void *data)
 {
+    struct server **ps;
     struct server *server;
     struct server_pool *pool;
 
-    server = elem;
+    ps = elem;
+    server = *ps;
     pool = server->owner;
 
     while (!TAILQ_EMPTY(&server->s_conn_q)) {
@@ -685,7 +691,7 @@ server_pool_server(struct server_pool *pool, uint8_t *key, uint32_t keylen)
     uint32_t idx;
 
     idx = server_pool_idx(pool, key, keylen);
-    server = array_get(&pool->server, idx);
+    server = *(struct server **)array_get(&pool->server, idx);
 
     log_debug(LOG_VERB, "key '%.*s' on dist %d maps to server '%.*s'", keylen,
               key, pool->dist_type, server->pname.len, server->pname.data);

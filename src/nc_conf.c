@@ -146,14 +146,19 @@ conf_server_each_transform(void *elem, void *data)
 {
     struct conf_server *cs = elem;
     struct array *server = data;
+    struct server **ps;
     struct server *s;
 
     ASSERT(cs->valid);
 
-    s = array_push(server);
+    ps = array_push(server);
+    ASSERT(ps != NULL);
+
+    s = nc_alloc(sizeof(struct server));
     ASSERT(s != NULL);
 
-    s->idx = array_idx(server, s);
+    *ps = s;
+    s->idx = array_idx(server, ps);
     s->owner = NULL;
 
     s->pname = cs->pname;

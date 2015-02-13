@@ -2899,7 +2899,10 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
         addr = (char*)msg->val_start;
 
         server = assoc_find(pool->server_table, addr, len);
-        if (server == NULL) goto ferror;
+        if (server == NULL) {
+            log_debug(LOG_WARN, "server: server to be asked not found");
+            goto ferror;
+        }
 
         s_conn = server_conn(server);
         if (s_conn == NULL) goto ferror;
@@ -3018,7 +3021,7 @@ redis_pool_tick(struct server_pool *pool)
         if (pool->slots[idx] != NULL) {
             server = pool->slots[idx]->master;
         } else {
-            server = array_get(&pool->server, 0);
+            server = *(struct server**)array_get(&pool->server, 0);
         }
 
         conn = server_conn(server);

@@ -62,6 +62,7 @@ function _M.update_config(self, config)
    self.zone = config.zone
    self.room = config.room
    self.ranges = config.ranges
+   self.addr = string.format("%s:%d", self.ip, self.port)
 
    if self.role == "master" and _M.zone_index["$master"] then
       self.tag_idx = _M.zone_index["$master"]
