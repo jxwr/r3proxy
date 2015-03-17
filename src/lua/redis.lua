@@ -56,8 +56,14 @@ function parse(body)
             local range = {}
             local pair = xs[i]:split("-")
 
-            range.left = tonumber(pair[1])
-            range.right = tonumber(pair[2])
+            if #pair == 2 then
+               range.left = tonumber(pair[1])
+               range.right = tonumber(pair[2])
+            else
+               range.left = tonumber(xs[i])
+               range.right = tonumber(xs[i])
+            end
+
             table.insert(ranges, range)
          end
          c.ranges = ranges
