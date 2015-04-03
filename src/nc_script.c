@@ -194,8 +194,20 @@ ffi_server_disconnect(struct server *server)
 }
 
 void
-ffi_slots_set_replicaset(struct server_pool *pool, 
-                         struct replicaset *rs, 
+ffi_slots_lock(struct server_pool *pool) {
+    log_debug(LOG_VERB, "lock slots to update");
+    pthread_mutex_lock(&pool->slots_mutex);
+}
+
+void
+ffi_slots_unlock(struct server_pool *pool) {
+    log_debug(LOG_VERB, "unlock slots. update done");
+    pthread_mutex_unlock(&pool->slots_mutex);
+}
+
+void
+ffi_slots_set_replicaset(struct server_pool *pool,
+                         struct replicaset *rs,
                          int left, int right)
 {
     int i;

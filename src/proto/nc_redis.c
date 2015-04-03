@@ -2976,10 +2976,6 @@ ferror:
         int64_t t_start, t_end;
         struct mbuf *mbuf;
 
-        //server = s_conn->owner;
-        /* pool? */
-        //pool = server->owner;
-
         /* FIXME: check length */
         mbuf = STAILQ_FIRST(&msg->mhdr);
 
