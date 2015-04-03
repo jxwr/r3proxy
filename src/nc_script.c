@@ -274,7 +274,28 @@ script_init(struct server_pool *pool)
     L = luaL_newstate();                        /* Create Lua state variable */
     pool->L = L;
     luaL_openlibs(L);                           /* Load Lua libraries */
-    if (luaL_loadfile(L, "lua/redis.lua")) {
+    #define MAX_PATH_LEN 1000
+    char path[MAX_PATH_LEN] = {'\0'};
+    char current[MAX_PATH_LEN] = {'\0'};
+    char *lua_name = "lua/redis.lua";
+
+    if (get_my_path(path, sizeof(path)) == NC_ERROR) {
+        log_error("get_my_path filed:%s", strerror(errno));
+        return NC_ERROR;
+    }
+
+    dirname(path);
+
+    log_debug(LOG_VERB, "lua script path is %s", path);
+
+    getcwd(current,sizeof(current));
+
+    if (chdir(path) < 0) {
+        log_error("chdir failed: %s", path);
+        return NC_ERROR;
+    }
+
+    if (luaL_loadfile(L, lua_name)) {
         log_debug(LOG_VERB, "init lua script failed - %s", lua_tostring(L, -1));
         return NC_ERROR;
     }
@@ -288,6 +309,10 @@ script_init(struct server_pool *pool)
 
     if (lua_pcall(L, 0, 0, 0) != 0) {
         log_error("call lua script failed - %s", lua_tostring(L, -1));
+    }
+    if (chdir(current) < 0) {
+        log_error("chdir failed: %s", current);
+        return NC_ERROR;
     }
 
     return NC_OK;
