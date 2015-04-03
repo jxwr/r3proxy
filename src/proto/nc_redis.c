@@ -2789,15 +2789,20 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         struct server *server = NULL;
 
         idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
-        
+
         if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
+            pthread_mutex_lock(&pool->slots_mutex);
             server = pool->slots[idx]->master;
+            pthread_mutex_unlock(&pool->slots_mutex);
         } else {
             for (i = 0; i < NC_MAXTAGNUM; i++) {
                 uint32_t n;
                 struct array *slaves;
 
+                pthread_mutex_lock(&pool->slots_mutex);
                 slaves = &pool->slots[idx]->tagged_servers[i];
+                pthread_mutex_unlock(&pool->slots_mutex);
+
                 if (array_n(slaves) == 0) {
                     continue;
                 }
@@ -2949,7 +2954,9 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
             keylen = (uint32_t)(kpos->end - kpos->start);
             idx = pool->key_hash((char*)key, keylen) % REDIS_CLUSTER_SLOTS;
             if (msg->integer != idx) {
+                pthread_mutex_lock(&pool->slots_mutex);
                 pool->slots[idx] = pool->slots[msg->integer];
+                pthread_mutex_unlock(&pool->slots_mutex);
             }
         }
 
@@ -2958,7 +2965,7 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
 
 ferror:
         log_debug(LOG_WARN, "server: failed to redirect message");
-        
+
         msg_put(pmsg);
         msg_put(msg);
         return NC_ERROR;
@@ -2969,16 +2976,15 @@ ferror:
         int64_t t_start, t_end;
         struct mbuf *mbuf;
 
-        server = s_conn->owner;
-        pool = server->owner;
-
         /* FIXME: check length */
         mbuf = STAILQ_FIRST(&msg->mhdr);
-        t_start = nc_usec_now();
-        script_call(pool, mbuf->start, mbuf->last - mbuf->start, "update_cluster_nodes");
-        t_end = nc_usec_now();
-        log_debug(LOG_VERB, "update slots done in %lldus", t_end - t_start);
+
+        pool->mbuf_thread = mbuf;
         req_put(pmsg);
+
+        if (write(pool->noti_fd[1], "1", 1) != 1) {
+            log_debug(LOG_WARN, "write to pipe failed");
+        }
         return NC_ERROR;
     }
 
