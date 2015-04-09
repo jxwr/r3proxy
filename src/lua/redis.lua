@@ -9,8 +9,19 @@ function parse(body)
    table.remove(lines, 1)
 
    local configs = {}
-   -- parse
+   local idx = 1
+   -- skip summary
    for i,line in ipairs(lines) do
+      if string.sub(line,1,2) == "# " then
+         table.remove(lines,i)
+      else
+         idx = i
+         break
+      end
+   end
+   -- parse nodes
+   for j=idx,#lines do
+      local line = lines[j]
       local xs = line:split(" ")
 
       local addr = xs[4]:split(":")
