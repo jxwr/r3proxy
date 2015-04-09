@@ -96,6 +96,7 @@ function _M.set_servers(self, configs)
    -- Drop servers that we no longer use
    for id, s in pairs(tmp_server_map) do
       C.ffi_server_table_delete(__pool, s.addr)
+      print("delete server from table", s.addr)
       self:put_server(s)
    end
 
@@ -114,14 +115,15 @@ function _M.set_servers(self, configs)
    elseif table.concat(tmp_server_names) ~= table.concat(self.last_server_names) then
       server_changed = true
    end
-
+   
    if server_changed then
-      print("server list changed, will update stats an server_table")
+      print("server list changed, will update stats and server_table")
       -- Reset stats
       C.ffi_pool_clear_servers(__pool)
 
       for _, s in pairs(self.server_map) do
          -- Set server addr->server map
+         print("insert server to table", s.addr)
          if C.ffi_server_table_set(__pool, s.addr, s.raw) < 0 then
             error("set server table failed")
          end

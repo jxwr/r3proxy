@@ -10,20 +10,16 @@ function parse(body)
 
    local configs = {}
    local idx = 1
+   local node_lines = {}
    -- skip summary
    for i,line in ipairs(lines) do
-      if string.sub(line,1,2) == "# " then
-         table.remove(lines,i)
-      else
-         idx = i
-         break
+      if string.sub(line,1,2) ~= "# " then
+         table.insert(node_lines,line)
       end
    end
    -- parse nodes
-   for j=idx,#lines do
-      local line = lines[j]
+   for _,line in ipairs(node_lines) do
       local xs = line:split(" ")
-
       local addr = xs[4]:split(":")
       ip, port = addr[1], addr[2]
 
