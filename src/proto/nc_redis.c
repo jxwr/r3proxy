@@ -31,7 +31,7 @@
 #define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
 #define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
 
-#define REDIS_UPDATE_TICKS (5000/NC_TICK_INTERVAL) /* 10s */
+#define REDIS_UPDATE_TICKS (5000/NC_TICK_INTERVAL) /* 5s */
 #define REDIS_CLUSTER_NODES_MESSAGE "*3\r\n$7\r\ncluster\r\n$5\r\nnodes\r\n$5\r\nextra\r\n"
 #define REDIS_CLUSTER_ASKING_MESSAGE "*1\r\n$6\r\nASKING\r\n"
 
