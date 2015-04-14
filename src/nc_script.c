@@ -160,17 +160,20 @@ ffi_server_connect(struct server *server) {
 
     pool = server->owner;
     conn = server_conn(server);
+
     if (conn == NULL) {
         return NC_ERROR;
     }
 
     status = server_connect(pool->ctx, server, conn);
+
     if (status != NC_OK) {
         log_warn("script: connect to server '%.*s' failed, ignored: %s",
                  server->pname.len, server->pname.data, strerror(errno));
         server_close(pool->ctx, conn);
         return NC_ERROR;
     }
+
     return NC_OK;
 }
 
@@ -230,7 +233,7 @@ ffi_pool_add_server(struct server_pool *pool, struct server *server) {
     *s = server;
     server->idx = n;
 
-    log_debug(LOG_VERB, "add server idx %d port %d", server->idx, server->port);
+    log_debug(LOG_NOTICE, "add server idx %d port %d", server->idx, server->port);
 }
 
 rstatus_t

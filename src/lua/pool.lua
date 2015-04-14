@@ -127,7 +127,6 @@ function _M.set_servers(self, configs)
          if C.ffi_server_table_set(__pool, s.addr, s.raw) < 0 then
             error("set server table failed")
          end
-
          C.ffi_pool_add_server(__pool, s.raw)
       end
 
