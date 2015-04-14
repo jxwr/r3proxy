@@ -160,13 +160,11 @@ ffi_server_connect(struct server *server) {
 
     pool = server->owner;
     conn = server_conn(server);
-
     if (conn == NULL) {
         return NC_ERROR;
     }
 
     status = server_connect(pool->ctx, server, conn);
-
     if (status != NC_OK) {
         log_warn("script: connect to server '%.*s' failed, ignored: %s",
                  server->pname.len, server->pname.data, strerror(errno));
@@ -296,7 +294,7 @@ script_call(struct server_pool *pool, const uint8_t *body, int len, const char *
 
     /* Call update function */
     if (lua_pcall(L, 1, 0, 0) != 0) {
-        log_debug(LOG_VERB, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
+        log_debug(LOG_WARN, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
         return NC_ERROR;
     }
 
@@ -308,7 +306,9 @@ script_call(struct server_pool *pool, const uint8_t *body, int len, const char *
         if (last_rs != rs) {
             last_rs = rs;
             log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d,%d]",
-                      i, rs->master->pname.len, rs->master->pname.data,
+                      i, 
+                      (rs->master ? rs->master->pname.len : 3), 
+                      (rs->master ? (char*)rs->master->pname.data : "nil"),
                       array_n(&rs->tagged_servers[0]),
                       array_n(&rs->tagged_servers[1]),
                       array_n(&rs->tagged_servers[2]),

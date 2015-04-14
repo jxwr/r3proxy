@@ -88,6 +88,16 @@ function update_cluster_nodes(msg)
 
    -- parse message returned by 'cluster nodes'
    local configs = parse(msg)
+
+   if #configs == 0 then
+      error("no server found")
+      return
+   end
+
+   if #configs == 1 and configs[1].ranges ~= nil and #configs[1].ranges == 0 then
+      error("free node found")
+      return
+   end
    
    -- reconstruct servers, fix adds and drops
    pool:set_servers(configs)
