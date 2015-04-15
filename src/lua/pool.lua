@@ -153,8 +153,10 @@ function _M.build_replica_sets(self)
    for id,s in pairs(self.server_map) do
       if s:is_slave() then
          local ms = self.server_map[s.master_id]
-         local rs = ms.replica_set
-         rs:add_tagged_server(s)
+         if ms ~= nil then
+            local rs = ms.replica_set
+            rs:add_tagged_server(s)
+         end
       end
    end
 

@@ -86,6 +86,17 @@ function update_cluster_nodes(msg)
       return
    end
 
+   local lines = msg:strip():split("\n")
+   local bytes = tonumber(string.sub(lines[1],2,-1))
+   if bytes == nil then
+      error("nodes info invalid")
+      return
+   end
+   if bytes > 16384 then
+      error("nodes info too large > 16384 (FIXME)")
+      return
+   end
+
    -- parse message returned by 'cluster nodes'
    local configs = parse(msg)
 

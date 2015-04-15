@@ -2791,7 +2791,8 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
 
         if (pool->slots[idx] == NULL) {
-            log_debug(LOG_WARN, "no accessible server found in slot %d", idx);
+            log_debug(LOG_WARN, "no accessible server found in slot %d for key '%.*s'", 
+                      idx, keylen, key);
             return NULL;
         }
         
