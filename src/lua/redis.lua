@@ -4,10 +4,7 @@ print ("Script Init Begin")
 
 local pool = require("pool")
 
-function parse(body)
-   local lines = body:strip():split("\n")
-   table.remove(lines, 1)
-
+function parse(lines)
    local configs = {}
    local idx = 1
    local node_lines = {}
@@ -96,9 +93,10 @@ function update_cluster_nodes(msg)
       error("nodes info too large > 16384 (FIXME)")
       return
    end
+   table.remove(lines, 1)
 
    -- parse message returned by 'cluster nodes'
-   local configs = parse(msg)
+   local configs = parse(lines)
 
    if #configs == 0 then
       error("no server found")
