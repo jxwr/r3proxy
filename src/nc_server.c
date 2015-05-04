@@ -372,13 +372,14 @@ server_close(struct context *ctx, struct conn *conn)
             req_put(msg);
         } else {
             c_conn = msg->owner;
-            if (c_conn == NULL) continue;
-
-            ASSERT(c_conn->client && !c_conn->proxy);
 
             msg->done = 1;
             msg->error = 1;
             msg->err = conn->err;
+
+            if (c_conn == NULL) continue;
+
+            ASSERT(c_conn->client && !c_conn->proxy);
 
             if (msg->frag_owner != NULL) {
                 msg->frag_owner->nfrag_done++;
